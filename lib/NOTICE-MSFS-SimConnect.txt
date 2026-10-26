@@ -1,0 +1,7 @@
+TaxiPro includes unmodified SimConnect runtime files from the Microsoft Flight Simulator 2024 SDK:
+
+- SimConnect.dll
+- Microsoft.FlightSimulator.SimConnect.dll
+
+Microsoft Flight Simulator SDK license terms: https://docs.flightsimulator.com/html/Introduction/SDK_EULA.htm
+These files are provided for use with Microsoft Flight Simulator. TaxiPro is not affiliated with or endorsed by Microsoft.

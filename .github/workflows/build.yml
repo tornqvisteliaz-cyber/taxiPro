@@ -1,0 +1,70 @@
+name: Build TaxiPro
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: write  # publish the zip on the Releases page
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Build the feasibility test
+        run: dotnet build tools/FeasibilityTest -c Release
+      - name: Package the exe with its SimConnect files
+        shell: pwsh
+        run: |
+          $bin = 'tools/FeasibilityTest/bin/Release/net48'
+          $out = 'dist/TaxiProFeasibility'
+          New-Item -ItemType Directory -Force -Path $out | Out-Null
+          foreach ($f in 'TaxiProFeasibility.exe', 'TaxiProFeasibility.exe.config', 'Microsoft.FlightSimulator.SimConnect.dll', 'SimConnect.dll') {
+            if (-not (Test-Path "$bin/$f")) { throw "Build output is missing $f." }
+            Copy-Item "$bin/$f" $out
+          }
+          Copy-Item lib/NOTICE-MSFS-SimConnect.txt $out
+          Compress-Archive -Path "$out/*" -DestinationPath dist/TaxiProFeasibility.zip -Force
+          $hash = (Get-FileHash dist/TaxiProFeasibility.zip -Algorithm SHA256).Hash.ToLower()
+          "$hash  TaxiProFeasibility.zip" | Set-Content dist/SHA256SUMS.txt -Encoding ascii
+          Write-Host "SHA-256: $hash"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TaxiProFeasibility
+          path: dist/TaxiProFeasibility.zip
+      # Artifacts need a GitHub login, so every build of main also replaces the files of the
+      # "latest-build" pre-release; this link always gives the newest one:
+      #   https://github.com/tornqvisteliaz-cyber/taxiPro/releases/download/latest-build/TaxiProFeasibility.zip
+      - name: Publish the latest build
+        if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view latest-build *> $null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create latest-build --title "TaxiPro latest build" --prerelease --notes "Newest build of TaxiPro, rebuilt from main automatically."
+            if ($LASTEXITCODE -ne 0) { throw "Could not create the latest-build release." }
+          }
+          gh release upload latest-build dist/TaxiProFeasibility.zip dist/SHA256SUMS.txt --clobber
+          if ($LASTEXITCODE -ne 0) { throw "Could not upload to the latest-build release." }
+      - name: Publish a versioned release
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = $env:GITHUB_REF_NAME
+          gh release view $tag *> $null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create $tag --title "TaxiPro $tag" --generate-notes --latest
+            if ($LASTEXITCODE -ne 0) { throw "Could not create release $tag." }
+          }
+          gh release upload $tag dist/TaxiProFeasibility.zip dist/SHA256SUMS.txt --clobber
+          if ($LASTEXITCODE -ne 0) { throw "Could not upload to release $tag." }
