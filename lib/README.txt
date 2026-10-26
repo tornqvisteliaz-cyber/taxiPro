@@ -1,11 +1,6 @@
-Put these two files here BEFORE you build:
+SimConnect runtime files from the Microsoft Flight Simulator 2024 SDK, used to build and run TaxiPro:
 
-  Microsoft.FlightSimulator.SimConnect.dll
-  SimConnect.dll
+  Microsoft.FlightSimulator.SimConnect.dll   (SDK: SimConnect SDK\lib\managed\)
+  SimConnect.dll                             (SDK: SimConnect SDK\lib\)
 
-Copy them from the MSFS 2024 SDK.
-
-Typical SDK locations:
-
-  C:\MSFS 2024 SDK\SimConnect SDK\lib\managed\Microsoft.FlightSimulator.SimConnect.dll
-  C:\MSFS 2024 SDK\SimConnect SDK\lib\SimConnect.dll
+They are committed so GitHub Actions can build the exe. See NOTICE-MSFS-SimConnect.txt.

@@ -7,8 +7,10 @@
     <AssemblyName>TaxiProFeasibility</AssemblyName>
   </PropertyGroup>
   <ItemGroup>
-    <!-- From the MSFS 2024 SDK; see lib/README.txt. Not committed. -->
+    <!-- From the MSFS 2024 SDK; see lib/README.txt. -->
     <Reference Include="Microsoft.FlightSimulator.SimConnect"><HintPath>..\..\lib\Microsoft.FlightSimulator.SimConnect.dll</HintPath></Reference>
     <None Include="..\..\lib\SimConnect.dll"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <!-- .NET Framework 4.8 reference assemblies, so it builds without Visual Studio (GitHub Actions). -->
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
   </ItemGroup>
 </Project>
