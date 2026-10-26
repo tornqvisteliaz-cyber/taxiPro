@@ -17,7 +17,7 @@ Before building the product we check whether the sim, and the study-level aircra
 
 1. Download [TaxiProFeasibility.zip](https://github.com/tornqvisteliaz-cyber/taxiPro/releases/download/latest-build/TaxiProFeasibility.zip), built from `main` by GitHub Actions, and unzip it. Or build it yourself: `dotnet build tools/FeasibilityTest -c Release`.
 2. In MSFS 2024: the aircraft lined up on a runway, engines running, parking brake released, hands off the throttles, HeavyPro closed.
-3. Double-click `TaxiProFeasibility.exe`. It shows what it sees and asks you to type `yes`. It then takes about two minutes, taxis up to 14 kt several times, and stops itself.
+3. Open `TaxiProFeasibility.exe`. The window connects to MSFS by itself and shows the aircraft, weight, parking brake, speed and N1. Press **Run test** and confirm. It takes about two minutes, taxis up to 14 kt several times, and stops itself; **Stop** brings the aircraft to a halt at any time. Results show in the window; logs are saved in Documents\TaxiPro.
 
 The test, in order:
 
