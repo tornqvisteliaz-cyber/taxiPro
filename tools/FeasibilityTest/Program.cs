@@ -36,6 +36,29 @@ static class P
 
     static void Main(string[] args)
     {
+        // Double-clicked (no arguments): show what it sees, ask before driving the aircraft,
+        // and keep the window open at the end so the result can be read.
+        var interactive = args.Length == 0;
+        try
+        {
+            Run(args, interactive);
+        }
+        catch (COMException)
+        {
+            Console.WriteLine("Could not connect to MSFS 2024. Start the sim, load the aircraft, then run this again.");
+        }
+        if (interactive)
+        {
+            Console.WriteLine();
+            Console.WriteLine("Press Enter to close.");
+            Console.ReadLine();
+        }
+    }
+
+    static void Run(string[] args, bool interactive)
+    {
+        Console.WriteLine("TaxiPro feasibility test, by Rotaidem");
+        Console.WriteLine();
         log = new StreamWriter(Path.Combine(Environment.CurrentDirectory, "taxipro-feasibility-" + DateTime.Now.ToString("HHmmss") + ".log")) { AutoFlush = true };
         sim = new SimConnect("TaxiPro feasibility test", IntPtr.Zero, 0, null, 0);
         sim.OnRecvException += (s, e) => { exceptions++; Out($"# SIMCONNECT EXCEPTION {e.dwException} send={e.dwSendID} idx={e.dwIndex}"); };
@@ -86,6 +109,20 @@ static class P
         }
         if (r.OnGround < 0.5) { Out("Not on the ground: stopping."); return; }
         if (r.Park > 0.5) { Out("Parking brake is set: release it and run again."); return; }
+        if (interactive)
+        {
+            Console.WriteLine();
+            Console.WriteLine("The test throttles up and taxis to about 14 kt several times (about two minutes).");
+            Console.WriteLine("The aircraft must be lined up on a RUNWAY, engines running, parking brake released.");
+            Console.WriteLine("Keep your hands off the throttles. Close HeavyPro.");
+            Console.Write("Type yes to start: ");
+            if (!string.Equals((Console.ReadLine() ?? "").Trim(), "yes", StringComparison.OrdinalIgnoreCase))
+            {
+                Out("Not started: nothing was sent to the sim.");
+                sim.Dispose();
+                return;
+            }
+        }
 
         // ---- 1. Idle creep baseline ----
         Throttle(0);
