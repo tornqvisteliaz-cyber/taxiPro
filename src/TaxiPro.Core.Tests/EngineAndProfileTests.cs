@@ -176,23 +176,6 @@ public class TaxiEngineTests
     }
 }
 
-public class HeavyProLinkTests
-{
-    [Fact]
-    public void HeavyPro_owns_the_brakes_only_when_running_on_and_set_up()
-    {
-        const string setUp = "{\"MasterEnable\":true,\"ToeBrakes\":true,\"LeftBrakeAxis\":\"Rz\",\"RightBrakeAxis\":\"\"}";
-        Assert.True(HeavyProLink.OwnsBrakes(true, setUp));
-        Assert.False(HeavyProLink.OwnsBrakes(false, setUp));
-        Assert.False(HeavyProLink.OwnsBrakes(true, "{\"ToeBrakes\":true,\"LeftBrakeAxis\":\"\",\"RightBrakeAxis\":\"\"}"));
-        Assert.False(HeavyProLink.OwnsBrakes(true, "{\"ToeBrakes\":false,\"LeftBrakeAxis\":\"Rz\"}"));
-        Assert.False(HeavyProLink.OwnsBrakes(true, "{\"MasterEnable\":false,\"LeftBrakeAxis\":\"Rz\"}"));
-        Assert.True(HeavyProLink.OwnsBrakes(true, "{\"RightBrakeAxis\":\"Slider0\"}"));
-        Assert.False(HeavyProLink.OwnsBrakes(true, "not json"));
-        Assert.False(HeavyProLink.OwnsBrakes(true, null));
-    }
-}
-
 public class SettingsStoreTests
 {
     [Fact]

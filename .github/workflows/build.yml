@@ -25,17 +25,6 @@ jobs:
           $tag = $env:GITHUB_REF_NAME
           if ($tag -notmatch '^v(\d+\.\d+\.\d+)$') { throw "Release tags look like v0.2.0, not $tag." }
           "TP_VERSION=$($Matches[1])" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-      - name: Built-in licence public key
-        # TaxiPro trusts only licence answers signed by rotaidem.com. Its public key is built in from
-        # packaging/licence-public-key.json (the key rotaidem.com publishes, shared with HeavyPro).
-        shell: pwsh
-        run: |
-          $file = 'packaging/licence-public-key.json'
-          if (-not (Test-Path $file)) { throw "Missing ${file}: TaxiPro would refuse every licence." }
-          $key = Get-Content $file -Raw | ConvertFrom-Json
-          if ($key.keys) { $key = $key.keys[0] }
-          if ($key.kty -ne 'RSA' -or -not $key.n) { throw "$file is not an RSA public key." }
-          Write-Host "Licence public key: $($key.kid)"
       - name: Run unit tests
         run: dotnet test src/TaxiPro.Core.Tests/TaxiPro.Core.Tests.csproj -c Release
       - name: Build TaxiPro and the feasibility test

@@ -40,7 +40,6 @@ public sealed record TaxiOutput(
 /// </summary>
 public sealed class TaxiEngine
 {
-    private readonly Func<bool> _licensed;
     private readonly GroundMomentum _momentum = new();
     private readonly Brakes _brakes = new();
     private readonly Steering _steering = new();
@@ -49,9 +48,6 @@ public sealed class TaxiEngine
     private int _slips;
     private string _aircraftKey = "";
     private GroundProfile _profile = GroundProfiles.Generic(AircraftClass.Unknown);
-
-    /// <param name="licensed">Whether TaxiPro may write; normally <see cref="LicenseGate.Unlocked"/>.</param>
-    public TaxiEngine(Func<bool>? licensed = null) => _licensed = licensed ?? (() => LicenseGate.Unlocked);
 
     public Acceptance SpeedAcceptance => _speedCheck.State;
     public Acceptance BrakeAcceptance => _brakeCheck.State;
@@ -71,9 +67,7 @@ public sealed class TaxiEngine
         dt = Numeric.Clamp(Numeric.Finite(dt), 0, 0.25) * Numeric.Clamp(Numeric.Finite(s.SimulationRate, 1), 0.1, 16);
         UpdateAircraft(s);
         var p = _profile;
-        var licensed = _licensed();
-        // Unlicensed is the same as switched off: everything passes straight through.
-        var master = settings.MasterEnable && licensed;
+        var master = settings.MasterEnable;
 
         // ---- Breakaway and weight
         SpeedCommand speed;
@@ -141,8 +135,7 @@ public sealed class TaxiEngine
         if (!ownsTiller)
             _steering.Reset();
 
-        return new TaxiOutput(p, speed, brakes, ownsBrakes, BrakeRoute, steer, ownsTiller,
-            licensed ? Badge(s, master, speed, brakes) : "NOT LICENSED", brakeNote, tillerNote);
+        return new TaxiOutput(p, speed, brakes, ownsBrakes, BrakeRoute, steer, ownsTiller, Badge(s, master, speed, brakes), brakeNote, tillerNote);
     }
 
     /// <summary>Forgets what was learnt about the aircraft (another aircraft was loaded, or the user asked to retry).</summary>

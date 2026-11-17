@@ -11,13 +11,13 @@ Ground handling for Microsoft Flight Simulator 2024, by Rotaidem. A heavy jet sh
 
 ## Use it
 
-1. Download [TaxiProSetup.exe](https://github.com/tornqvisteliaz-cyber/taxiPro/releases/download/latest-build/TaxiProSetup.exe) (newest build of `main`) and run it. Enter your licence key and press **Install TaxiPro**. Windows may say *"Windows protected your PC"* because the installer is not code-signed yet: click **More info → Run anyway**. RotaHub users can install TaxiPro from RotaHub instead.
+1. Download [TaxiProSetup.exe](https://github.com/tornqvisteliaz-cyber/taxiPro/releases/download/latest-build/TaxiProSetup.exe) (newest build of `main`) and run it, then press **Install TaxiPro**. No licence key is needed for now. Windows may say *"Windows protected your PC"* because the installer is not code-signed yet: click **More info → Run anyway**. RotaHub users can install TaxiPro from RotaHub instead.
 2. Keep your MSFS bindings as they are: toe brakes on **Left/Right brake axis**, the brake key on **Brakes**. A tiller goes on **Steering axis** (the `AXIS_STEERING_SET` binding). TaxiPro captures those inputs the way HeavyPro captures the stick, and passes on anything it isn't shaping at that moment unchanged.
 3. Load a flight. TaxiPro connects by itself, recognises the aircraft and shows its ground profile.
 
 **Runs in the background:** closing the window keeps TaxiPro running in the system tray, where its tooltip shows what it is doing. Right-click the icon to open TaxiPro or exit it. **Start with Windows** (offered by the installer and in the app) starts it in the tray when you log in.
 
-**Updating** is running the newest `TaxiProSetup.exe` again (or RotaHub): it keeps your key and settings. **Uninstall** it from Windows' installed apps. Your settings are kept, and the uninstaller offers to free the licence activation.
+**Updating** is running the newest `TaxiProSetup.exe` again (or RotaHub): it keeps your settings. **Uninstall** it from Windows' installed apps. Your settings are kept.
 
 The badge shows what TaxiPro is doing:
 
@@ -29,14 +29,31 @@ The badge shows what TaxiPro is doing:
 | `PARKED` / `PUSHBACK` / `SLEW` / `IN THE AIR` | TaxiPro is standing by and not touching anything. |
 | `TAKEOFF / LANDING` | Above 40 kt. The speed belongs to the sim. |
 | `OFF` | The master switch is off. Every input passes straight through. |
-| `NOT LICENSED` | The licence did not check out. Every input passes straight through. |
 | `OFFLINE` | MSFS is not running yet. TaxiPro connects on its own. |
 
 **Retry checks** forgets what TaxiPro learnt about the loaded aircraft and tries every effect again. Logs are in `%AppData%\TaxiPro\logs`, and settings in `%AppData%\TaxiPro\settings.json`. TaxiPro is installed in `%LOCALAPPDATA%\TaxiPro`.
 
 ### Next to HeavyPro
 
-HeavyPro can shape the toe brakes itself. When HeavyPro is running with its toe brakes set up and on, TaxiPro leaves the brakes to it, so the two never write the brakes at the same time. The **Leave the toe brakes to HeavyPro** checkbox turns this off. TaxiPro never touches the stick or the rudder axis, which belong to HeavyPro.
+TaxiPro is made to run at the same time as HeavyPro. You don't need to close either one or change any setting.
+
+| | HeavyPro | TaxiPro |
+|---|---|---|
+| Stick (pitch, roll) | ✔ | never touched |
+| Rudder pedals' rudder axis (and the nosewheel steering it drives) | ✔ | never touched |
+| Tiller (`AXIS_STEERING_SET`) | – | ✔ |
+| Breakaway thrust and weight (`VELOCITY BODY Z`) | – | ✔ |
+| Toe brakes | when HeavyPro shapes them, see below | everything else |
+| Brake keys (`BRAKES`, `BRAKES_LEFT/RIGHT`) | – | ✔ (passed through while HeavyPro has the toe brakes) |
+
+**Toe brakes:** both apps use the same brake model (HeavyPro's progressive toe brakes), and only one of them shapes the brakes at a time. TaxiPro steps aside exactly when HeavyPro shapes them. It makes the same decision HeavyPro makes, from the same settings and the same MSFS control profiles:
+
+- HeavyPro is running, with **Master Enable** and **Heavy toe brakes** on, its rudder pedals picked and a toe brake set up with **Detect**;
+- and those pedals' toe brakes are not still bound in MSFS. If they are, HeavyPro leaves the brakes to MSFS, so TaxiPro shapes them. HeavyPro's **Fix MSFS bindings** clears that binding and hands the brakes to HeavyPro.
+
+The window shows **● HeavyPro running**; hover over it to see who has the brakes. The log records each change. **Leave the toe brakes to HeavyPro** (on by default) can be turned off.
+
+**Underneath:** each app captures only its own inputs, so the two never mask or resend each other's events. HeavyPro holds the stick and rudder events; TaxiPro holds the toe-brake, brake-key and tiller events. HeavyPro's flight-model option for the PMDG 777 changes only pitch and roll inertia, not the ground physics. Each app has its own settings folder, tray icon and Start with Windows entry, and the two install side by side in `%LOCALAPPDATA%\HeavyPro` and `%LOCALAPPDATA%\TaxiPro`, as RotaHub expects. Close both only for the feasibility test, which writes the brakes itself.
 
 ## How it works
 
@@ -52,22 +69,6 @@ TaxiPro reads the aircraft every sim frame over SimConnect: forward speed, weigh
 TaxiPro stays out of the way when the aircraft is in the air, in slew, in pushback, has the parking brake set, or is rolling backwards. It also stays out on aircraft that aren't jets. Between 25 and 40 kt, and at takeoff thrust (N1 above 70–80 %), it hands the speed back to the sim, so a takeoff roll is never touched.
 
 Each type has its own ground profile: PMDG 777 / 737 / 747, iniBuilds A350-900 / -1000, Fenix A320 / A321, A380, 787, 767, A330, A340, A300/A310, MD-11, TriStar, 757, A220, MD-80, 727, E-Jets, CRJ and 146. Any other aircraft gets a profile for its size class.
-
-## Licensing
-
-TaxiPro uses the same licensing as HeavyPro, from the shared `Rotaidem.Licensing` library (copied from HeavyPro; see [its README](src/Rotaidem.Licensing/README.md)).
-
-- **Keys** look like `TPRO-XXXX-XXXX-XXXX`. The check character catches typing mistakes before anything is sent.
-- **Activation:** the installer, or the **Activate TaxiPro** window when the app has no working key, activates the key on rotaidem.com for this PC. The product id is `rotaidem-taxipro`, with `taxipro` also accepted.
-- **Signed answers:** TaxiPro trusts a "valid" answer only if it carries a token signed by rotaidem.com's private key, naming this PC, this key and the random nonce TaxiPro just sent. The public key is built in from `packaging/licence-public-key.json`, the same server key HeavyPro uses. A fake server, an edited or copied `license.json`, a replayed answer and a clock turned back are all refused.
-- **Offline:** a saved signed answer starts TaxiPro at once, for up to 14 days between online checks (or the server's lease, if shorter).
-- **While running:** TaxiPro re-checks every 20 minutes. TaxiPro writes nothing unless a server-confirmed lease is running. That is checked in two independent places, `TaxiEngine` and the SimConnect write path. A revoked licence locks it at once and closes it.
-- **Moving PCs:** **Deactivate this PC** in the app (or the uninstaller) frees the activation.
-- **Debug builds skip the check**, so F5 works without a key. Release builds, which are all that ship, always check.
-
-Keys are saved in `%LOCALAPPDATA%\Rotaidem\taxipro\license.json`, and licence rejections are logged in `%AppData%\TaxiPro\logs\licence.log`.
-
-**Before selling TaxiPro**, the website needs a `rotaidem-taxipro` product to issue `TPRO` keys, and RotaHub needs to list `rotaidem-taxipro`. Until then every key is refused with "wrong product" or "not found".
 
 ## Releases
 
@@ -96,14 +97,11 @@ src/TaxiPro.Core         Ground physics, profiles, settings (netstandard2.0)
   Physics/TaxiEngine       runs all three, ownership and self-checks
   Physics/AcceptanceMonitor whether the aircraft takes a write
   Models/GroundProfiles    per-type ground data
-  Services/HeavyProLink    who owns the brakes when HeavyPro runs
-  LicenseGate              no writes without a confirmed licence lease
+  Services/HeavyProLink    HeavyPro's own brake rule, from its settings and the MSFS profiles
 src/TaxiPro.Core.Tests   xUnit tests (net8.0): dotnet test src/TaxiPro.Core.Tests
-src/TaxiPro.App          Windows app (WinForms, .NET Framework 4.8): SimLink, MainForm, tray, licence
-src/TaxiPro.Setup        TaxiProSetup.exe: activation, install, update, uninstall
-src/Rotaidem.Licensing   Rotaidem's licence library (shared with HeavyPro)
-src/Shared               TaxiProLicense: product id, key prefix, server (linked into app and setup)
-packaging/               Payload, signing and RotaHub manifest scripts; licence and release public keys
+src/TaxiPro.App          Windows app (WinForms, .NET Framework 4.8): SimLink, MainForm, tray
+src/TaxiPro.Setup        TaxiProSetup.exe: install, update, uninstall
+packaging/               Payload, signing and RotaHub manifest scripts; the release public key
 tools/FeasibilityTest    The original feasibility test
 lib/                     SimConnect runtime from the MSFS 2024 SDK
 ```

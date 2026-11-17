@@ -10,10 +10,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\TaxiPro.Core\TaxiPro.Core.csproj" />
-    <ProjectReference Include="..\Rotaidem.Licensing\Rotaidem.Licensing.csproj" />
-    <!-- The app's licence settings and the built-in public key, tested as the app and installer use them. -->
-    <Compile Include="..\Shared\TaxiProLicense.cs" Link="TaxiProLicense.cs" />
-    <EmbeddedResource Include="..\..\packaging\licence-public-key.json" LogicalName="TaxiPro.LicensePublicKey.json" />
   </ItemGroup>
   <ItemGroup>
     <Using Include="Xunit" />

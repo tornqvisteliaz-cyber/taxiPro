@@ -35,6 +35,7 @@ public sealed record LiveStatus
     public bool TillerInputSeen { get; init; }
 
     public bool HeavyProRunning { get; init; }
+    public string HeavyProNote { get; init; } = "";
 
     public static LiveStatus Offline { get; } = new();
 }

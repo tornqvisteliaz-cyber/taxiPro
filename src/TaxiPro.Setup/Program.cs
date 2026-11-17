@@ -5,13 +5,11 @@ using System.IO.Compression;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using Microsoft.Win32;
-using Rotaidem.Licensing;
-using TaxiPro.Licensing;
 
 namespace TaxiPro.Setup;
 
 /// <summary>
-/// TaxiProSetup.exe: one file that activates the licence key, installs TaxiPro into
+/// TaxiProSetup.exe: one file that installs TaxiPro into
 /// %LOCALAPPDATA%\TaxiPro (no administrator rights), adds Start menu and desktop shortcuts and an
 /// entry in Windows' installed apps, and starts it. The same flow as HeavyProSetup.
 ///
@@ -112,7 +110,7 @@ static class Install
         key.SetValue("EstimatedSize", (int)(DirectorySize(appDir) / 1024), RegistryValueKind.DWord);
     }
 
-    /// <summary>Removes shortcuts, the Start with Windows entry, the installed-apps entry and the app folder. Settings and the licence stay.</summary>
+    /// <summary>Removes shortcuts, the Start with Windows entry, the installed-apps entry and the app folder. Settings stay.</summary>
     public static void Remove(string appDir)
     {
         foreach (var link in Shortcuts())
@@ -197,18 +195,6 @@ static class Uninstaller
         if (!Install.CloseRunningTaxiPro(null))
             return 1;
 
-        if (TaxiProLicense.Store().Load() is { } saved &&
-            MessageBox.Show("Also free this computer's licence activation, so you can use TaxiPro on another PC?",
-                "Uninstall TaxiPro", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
-        {
-            var result = Task.Run(() => TaxiProLicense.DeactivateAsync(saved.Key)).GetAwaiter().GetResult();
-            if (result.IsValid)
-                TaxiProLicense.Store().Clear();
-            else
-                MessageBox.Show("The activation could not be freed: " + result.Message + "\n\nTaxiPro is removed anyway; you can free the activation on rotaidem.com.",
-                    "Uninstall TaxiPro", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-        }
-
         try
         {
             Install.Remove(appDirArg ?? appDir);
@@ -231,22 +217,19 @@ sealed class SetupForm : Form
 {
     // Rotaidem brand colours, matching rotaidem.com, HeavyProSetup and the app.
     private static readonly Color Bg = Color.FromArgb(0x11, 0x13, 0x15);
-    private static readonly Color Field = Color.FromArgb(0x1B, 0x1F, 0x22);
     private static readonly Color Ink = Color.FromArgb(0xEE, 0xF0, 0xF2);
     private static readonly Color Muted = Color.FromArgb(0x87, 0x8D, 0x94);
     private static readonly Color Accent = Color.FromArgb(0xAA, 0xB6, 0xC2);
     private static readonly Color Danger = Color.FromArgb(0xE5, 0x48, 0x4D);
 
-    private readonly TextBox _key = new() { CharacterCasing = CharacterCasing.Upper };
     private readonly Button _install = new() { Text = "Install TaxiPro" };
     private readonly CheckBox _startWithWindows = new() { Text = "Start TaxiPro with Windows (in the tray)", Checked = true };
     private readonly Label _status = new();
-    private readonly bool _activated;
 
     public SetupForm()
     {
         Text = "Install TaxiPro";
-        ClientSize = new Size(560, 460);
+        ClientSize = new Size(560, 360);
         FormBorderStyle = FormBorderStyle.FixedSingle;
         MaximizeBox = false;
         StartPosition = FormStartPosition.CenterScreen;
@@ -265,40 +248,25 @@ sealed class SetupForm : Form
             Left = 36, Top = 128, Width = 488, Height = 46, ForeColor = Muted
         };
 
-        var keyLabel = new Label { Text = "Licence key", Left = 36, Top = 192, AutoSize = true, ForeColor = Ink, Font = new Font("Segoe UI Semibold", 10f) };
-        _key.SetBounds(36, 218, 488, 32);
-        _key.BackColor = Field;
-        _key.ForeColor = Ink;
-        _key.BorderStyle = BorderStyle.FixedSingle;
-        _key.Font = new Font("Consolas", 13f);
-        var keyHint = new Label { Text = $"From your purchase email. It looks like {TaxiProLicense.KeyExample}.", Left = 36, Top = 258, AutoSize = true, ForeColor = Muted, Font = new Font("Segoe UI", 9f) };
-
-        _startWithWindows.SetBounds(36, 290, 488, 26);
+        _startWithWindows.SetBounds(36, 190, 488, 26);
         _startWithWindows.ForeColor = Muted;
         _startWithWindows.Font = new Font("Segoe UI", 9.5f);
 
-        _install.SetBounds(36, 330, 488, 46);
+        _install.SetBounds(36, 230, 488, 46);
         _install.FlatStyle = FlatStyle.Flat;
         _install.FlatAppearance.BorderSize = 0;
         _install.BackColor = Accent;
         _install.ForeColor = Color.FromArgb(0x0B, 0x0C, 0x0E);
         _install.Font = new Font("Segoe UI Semibold", 11f);
         _install.Cursor = Cursors.Hand;
-        _install.Click += async (_, _) => await ActivateThenInstall();
+        _install.Click += (_, _) => DoInstall();
         AcceptButton = _install;
 
-        _status.SetBounds(36, 388, 488, 56);
+        _status.SetBounds(36, 288, 488, 56);
         _status.ForeColor = Muted;
         _status.Font = new Font("Segoe UI", 9f);
         _status.Text = "Installs into your user folder (no administrator rights) and adds Start menu and desktop shortcuts.";
 
-        // Reinstalling or updating on a computer that is already activated should not ask again.
-        var saved = TaxiProLicense.Store().Load();
-        if (saved != null)
-        {
-            _key.Text = saved.Key;
-            _activated = TaxiProLicense.CheckOffline().IsValid;
-        }
         if (Directory.Exists(Install.AppDir) && File.Exists(Path.Combine(Install.AppDir, Install.Exe)))
         {
             _install.Text = "Update TaxiPro";
@@ -306,10 +274,7 @@ sealed class SetupForm : Form
             using var run = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run");
             _startWithWindows.Checked = run?.GetValue(Install.AppName) != null;
         }
-        TaxiProLicense.WakeServer();
-        _key.HandleCreated += (_, _) => SendMessage(_key.Handle, 0x1501 /* EM_SETCUEBANNER */, (IntPtr)1, TaxiProLicense.KeyExample);
-        Shown += (_, _) => { _key.SelectionStart = _key.Text.Length; _key.SelectionLength = 0; };
-        Controls.AddRange(new Control[] { logo, title, by, intro, keyLabel, _key, keyHint, _startWithWindows, _install, _status });
+        Controls.AddRange(new Control[] { logo, title, by, intro, _startWithWindows, _install, _status });
     }
 
     [DllImport("dwmapi.dll")]
@@ -336,40 +301,6 @@ sealed class SetupForm : Form
     {
         _status.ForeColor = problem ? Danger : Muted;
         _status.Text = text;
-    }
-
-    private async Task ActivateThenInstall()
-    {
-        if (!TaxiProLicense.IsWellFormed(_key.Text))
-        {
-            ShowStatus($"That licence key has a typo. It should look like {TaxiProLicense.KeyExample}.", problem: true);
-            return;
-        }
-        var saved = TaxiProLicense.Store().Load();
-        // Already activated here with this key (an update): no need to use the server.
-        if (!(_activated && saved != null && LicenseKey.Normalize(_key.Text) == saved.Key))
-        {
-            var label = _install.Text;
-            _install.Enabled = false;
-            _install.Text = "Checking your key…";
-            ShowStatus("Contacting the licence server. This can take up to a minute.");
-            try
-            {
-                var result = await TaxiProLicense.ActivateAsync(_key.Text);
-                if (!result.IsValid)
-                {
-                    ShowStatus(result.Message, problem: true);
-                    return;
-                }
-                TaxiProLicense.Save(_key.Text, result);
-            }
-            finally
-            {
-                _install.Enabled = true;
-                _install.Text = label;
-            }
-        }
-        DoInstall();
     }
 
     private void DoInstall()
@@ -423,6 +354,4 @@ sealed class SetupForm : Form
             key.DeleteValue(Install.AppName);
     }
 
-    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
-    private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, string lParam);
 }

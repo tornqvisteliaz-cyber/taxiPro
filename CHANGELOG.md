@@ -2,12 +2,12 @@
 
 ## 0.2.0
 
-TaxiPro becomes a product you install, licence and leave running, the same way as HeavyPro.
+TaxiPro becomes a product you install and leave running next to HeavyPro.
 
-- **Installer:** `TaxiProSetup.exe` is one file. It activates your licence key, installs TaxiPro into your user folder (no administrator rights), adds Start menu and desktop shortcuts and an entry under Windows' installed apps, and opens TaxiPro. Running it again updates TaxiPro without asking for the key. **Uninstall** removes TaxiPro, keeps your settings, and can free the licence activation for another PC.
-- **Licence:** TaxiPro needs a licence key (`TPRO-XXXX-XXXX-XXXX`), activated on rotaidem.com like HeavyPro's. Once activated it starts offline too, for up to 14 days between checks. It re-checks every 20 minutes; a revoked licence stops TaxiPro at once. Without a valid licence TaxiPro passes every input straight through. **Deactivate this PC** in the app frees the activation.
+- **Installer:** `TaxiProSetup.exe` is one file. It installs TaxiPro into your user folder (no administrator rights), adds Start menu and desktop shortcuts and an entry under Windows' installed apps, and opens TaxiPro. Running it again updates TaxiPro. **Uninstall** removes TaxiPro and keeps your settings. No licence key is needed for now.
 - **Tray:** closing the window keeps TaxiPro running in the system tray, where its tooltip shows what it is doing. Right-click the icon to open TaxiPro or exit it. **Start with Windows** starts it in the tray when you log in. Opening TaxiPro again brings back the copy already running.
-- **RotaHub:** every release includes `TaxiPro-rotahub.zip` and a signed `rotahub.jws`, so RotaHub can install and update TaxiPro.
+- **Runs with HeavyPro:** TaxiPro now leaves the toe brakes to HeavyPro exactly when HeavyPro shapes them. It makes the same decision HeavyPro makes, from HeavyPro's settings and the same MSFS control profiles. Before, if the toe brakes were still bound in MSFS, HeavyPro stood aside and so did TaxiPro, and neither shaped the brakes. TaxiPro never touches the stick or the rudder.
+- **RotaHub:** every release includes `TaxiPro-rotahub.zip` and, for version tags, a signed `rotahub.jws`, so RotaHub can install and update TaxiPro.
 
 ## 0.1.0
 
