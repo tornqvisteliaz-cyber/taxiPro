@@ -10,11 +10,17 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\TaxiPro.Core\TaxiPro.Core.csproj" />
+    <ProjectReference Include="..\Rotaidem.Licensing\Rotaidem.Licensing.csproj" />
+    <Compile Include="..\Shared\TaxiProLicense.cs" Link="TaxiProLicense.cs" />
+    <!-- The licence server's public key (rotaidem.com/api/licenses/jwks.json, shared with HeavyPro).
+         TaxiPro accepts only licence answers signed with the matching private key. -->
+    <EmbeddedResource Include="..\..\packaging\licence-public-key.json" LogicalName="TaxiPro.LicensePublicKey.json" />
     <!-- From the MSFS 2024 SDK; see lib/README.txt. -->
     <Reference Include="Microsoft.FlightSimulator.SimConnect"><HintPath>..\..\lib\Microsoft.FlightSimulator.SimConnect.dll</HintPath></Reference>
     <None Include="..\..\lib\SimConnect.dll" Link="SimConnect.dll"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
     <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Drawing" />
+    <Reference Include="System.Net.Http" />
     <EmbeddedResource Include="Assets\Logo.png" LogicalName="TaxiPro.Logo.png" />
     <Compile Include="..\TaxiPro.Core\Polyfills.cs" Link="Polyfills.cs" />
     <!-- .NET Framework 4.8 reference assemblies, so it builds without Visual Studio (GitHub Actions, Linux). -->

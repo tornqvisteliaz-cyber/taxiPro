@@ -59,7 +59,7 @@ public class TaxiEngineTests
     [Fact]
     public void Master_off_owns_nothing_and_writes_nothing()
     {
-        var engine = new TaxiEngine();
+        var engine = Sim.Engine();
         var settings = new TaxiSettings { MasterEnable = false };
         TaxiOutput o = null!;
         for (var i = 0; i < 30; i++) o = engine.Step(Sim.Parked777(), new TaxiInputs(1, 1, 1), settings, false, Sim.Dt);
@@ -72,7 +72,7 @@ public class TaxiEngineTests
     [Fact]
     public void Parked_at_idle_it_holds()
     {
-        var engine = new TaxiEngine();
+        var engine = Sim.Engine();
         TaxiOutput o = null!;
         for (var i = 0; i < 30; i++) o = engine.Step(Sim.Parked777(), default, On, false, Sim.Dt);
         Assert.Equal("HOLDING", o.Badge);
@@ -83,7 +83,7 @@ public class TaxiEngineTests
     [Fact]
     public void Brakes_are_left_to_HeavyPro_when_it_shapes_them()
     {
-        var engine = new TaxiEngine();
+        var engine = Sim.Engine();
         var o = engine.Step(Sim.Parked777(), new TaxiInputs(1, 1, 0), On, heavyProOwnsBrakes: true, Sim.Dt);
         Assert.False(o.OwnsBrakes);
         Assert.Equal("HeavyPro is shaping the toe brakes", o.BrakeNote);
@@ -94,7 +94,7 @@ public class TaxiEngineTests
     [Fact]
     public void An_aircraft_that_ignores_the_hold_is_detected_and_left_alone()
     {
-        var engine = new TaxiEngine();
+        var engine = Sim.Engine();
         var s = Sim.Parked777();
         // The aircraft ignores every write: each time the hold engages it keeps creeping until it slips.
         for (var round = 0; round < 3; round++)
@@ -112,7 +112,7 @@ public class TaxiEngineTests
     [Fact]
     public void A_working_hold_is_confirmed()
     {
-        var engine = new TaxiEngine();
+        var engine = Sim.Engine();
         // Thrust above rolling resistance but below breakaway: without the hold it would creep.
         for (var i = 0; i < 120; i++) engine.Step(Sim.Parked777(thrust: 12_000, n1: 28), default, On, false, Sim.Dt);
         Assert.Equal(Acceptance.Works, engine.SpeedAcceptance);
@@ -121,7 +121,7 @@ public class TaxiEngineTests
     [Fact]
     public void Brake_writes_the_aircraft_ignores_fall_back_to_axis_events_then_pass_through()
     {
-        var engine = new TaxiEngine();
+        var engine = Sim.Engine();
         var s = Sim.Parked777() with { BrakeLeft = 0, BrakeRight = 0 }; // readback never moves
         for (var i = 0; i < 300 && engine.BrakeRoute == BrakeRoute.Position; i++)
             engine.Step(s, new TaxiInputs(1, 1, 0), On, false, Sim.Dt);
@@ -135,7 +135,7 @@ public class TaxiEngineTests
     [Fact]
     public void Brake_writes_the_aircraft_takes_stay_on_the_position_route()
     {
-        var engine = new TaxiEngine();
+        var engine = Sim.Engine();
         var last = 0.0;
         for (var i = 0; i < 120; i++)
             last = engine.Step(Sim.Parked777() with { BrakeLeft = last }, new TaxiInputs(1, 1, 0), On, false, Sim.Dt).Brakes.Left;
@@ -146,7 +146,7 @@ public class TaxiEngineTests
     [Fact]
     public void Loading_another_aircraft_forgets_what_was_learnt()
     {
-        var engine = new TaxiEngine();
+        var engine = Sim.Engine();
         for (var i = 0; i < 120; i++) engine.Step(Sim.Parked777(thrust: 12_000, n1: 28), default, On, false, Sim.Dt);
         Assert.Equal(Acceptance.Works, engine.SpeedAcceptance);
         var a350 = Sim.Parked777() with { Aircraft = new AircraftIdentity("iniBuilds A350-900") };
@@ -158,7 +158,7 @@ public class TaxiEngineTests
     [Fact]
     public void The_tiller_is_not_owned_in_the_air_or_during_pushback()
     {
-        var engine = new TaxiEngine();
+        var engine = Sim.Engine();
         Assert.False(engine.Step(Sim.Parked777() with { OnGround = false }, default, On, false, Sim.Dt).OwnsTiller);
         Assert.False(engine.Step(Sim.Parked777() with { PushbackActive = true }, default, On, false, Sim.Dt).OwnsTiller);
         Assert.True(engine.Step(Sim.Parked777(), default, On, false, Sim.Dt).OwnsTiller);
@@ -167,8 +167,8 @@ public class TaxiEngineTests
     [Fact]
     public void Sim_rate_speeds_up_the_models()
     {
-        var a = new TaxiEngine();
-        var b = new TaxiEngine();
+        var a = Sim.Engine();
+        var b = Sim.Engine();
         var s = Sim.Parked777();
         var normal = a.Step(s, new TaxiInputs(1, 1, 0), On, false, 0.04).Brakes.Left;
         var fast = b.Step(s with { SimulationRate = 2 }, new TaxiInputs(1, 1, 0), On, false, 0.04).Brakes.Left;

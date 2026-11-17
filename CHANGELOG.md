@@ -1,5 +1,14 @@
 # TaxiPro changelog
 
+## 0.2.0
+
+TaxiPro becomes a product you install, licence and leave running, the same way as HeavyPro.
+
+- **Installer:** `TaxiProSetup.exe` is one file. It activates your licence key, installs TaxiPro into your user folder (no administrator rights), adds Start menu and desktop shortcuts and an entry under Windows' installed apps, and opens TaxiPro. Running it again updates TaxiPro without asking for the key. **Uninstall** removes TaxiPro, keeps your settings, and can free the licence activation for another PC.
+- **Licence:** TaxiPro needs a licence key (`TPRO-XXXX-XXXX-XXXX`), activated on rotaidem.com like HeavyPro's. Once activated it starts offline too, for up to 14 days between checks. It re-checks every 20 minutes; a revoked licence stops TaxiPro at once. Without a valid licence TaxiPro passes every input straight through. **Deactivate this PC** in the app frees the activation.
+- **Tray:** closing the window keeps TaxiPro running in the system tray, where its tooltip shows what it is doing. Right-click the icon to open TaxiPro or exit it. **Start with Windows** starts it in the tray when you log in. Opening TaxiPro again brings back the copy already running.
+- **RotaHub:** every release includes `TaxiPro-rotahub.zip` and a signed `rotahub.jws`, so RotaHub can install and update TaxiPro.
+
 ## 0.1.0
 
 First build of TaxiPro, the ground-handling companion to HeavyPro. Not yet flown against MSFS 2024: every effect checks live whether the aircraft accepts it and steps aside if not.

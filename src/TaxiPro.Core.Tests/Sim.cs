@@ -54,4 +54,7 @@ internal static class Sim
     }
 
     public static readonly MomentumOptions Full = new(true, true, 1.0);
+
+    /// <summary>An engine that counts as licensed, so tests do not depend on the static gate.</summary>
+    public static TaxiEngine Engine() => new(() => true);
 }

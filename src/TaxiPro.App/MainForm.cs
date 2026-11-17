@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Windows.Forms;
+using TaxiPro.Core;
 using TaxiPro.Core.Models;
 using TaxiPro.Core.Physics;
 using TaxiPro.Core.Services;
@@ -42,14 +43,24 @@ public sealed class MainForm : Form
 
     private readonly CheckBox _yield = new() { Text = "Leave the toe brakes to HeavyPro while it shapes them" };
     private readonly Label _heavyPro = new();
+    private readonly CheckBox _runInBackground = new() { Text = "Keep running in the tray when closed" };
+    private readonly CheckBox _startWithWindows = new() { Text = "Start with Windows" };
+    private readonly Label _licence = new();
+    private readonly LinkLabel _deactivate = new() { Text = "Deactivate this PC" };
     private readonly TextBox _log = new();
+    private readonly TrayIcon _tray;
+    private readonly System.Windows.Forms.Timer _recheck = new() { Interval = (int)Licence.RecheckInterval.TotalMilliseconds };
     private bool _loading;
+    private bool _allowShow;
+    private bool _exiting;
 
-    public MainForm()
+    /// <param name="startHidden">Started with Windows (--background): stay in the tray until opened.</param>
+    public MainForm(bool startHidden = false)
     {
+        _allowShow = !startHidden;
         _settings = _store.Load();
         Text = "TaxiPro";
-        ClientSize = new Size(780, 760);
+        ClientSize = new Size(780, 790);
         MinimumSize = new Size(800, 640);
         StartPosition = FormStartPosition.CenterScreen;
         BackColor = Theme.Bg;
@@ -118,7 +129,27 @@ public sealed class MainForm : Form
         _heavyPro.Font = new Font("Segoe UI", 9f);
         _heavyPro.Anchor = AnchorStyles.Top | AnchorStyles.Right;
 
-        var logLabel = new Label { Text = "LOG", Left = 24, Top = 566, AutoSize = true, ForeColor = Theme.Accent, Font = new Font("Segoe UI Semibold", 9f) };
+        foreach (var c in new[] { _runInBackground, _startWithWindows })
+        {
+            c.ForeColor = Theme.Muted;
+            c.Font = new Font("Segoe UI", 9f);
+        }
+        _runInBackground.SetBounds(24, 556, 270, 26);
+        _startWithWindows.SetBounds(300, 556, 170, 26);
+        _licence.SetBounds(470, 558, 160, 22);
+        _licence.TextAlign = ContentAlignment.MiddleRight;
+        _licence.Font = new Font("Segoe UI", 9f);
+        _licence.ForeColor = Theme.Muted;
+        _deactivate.SetBounds(634, 558, 122, 22);
+        _deactivate.TextAlign = ContentAlignment.MiddleRight;
+        _deactivate.Font = new Font("Segoe UI", 9f);
+        _deactivate.LinkColor = _deactivate.ActiveLinkColor = Theme.Accent;
+        _deactivate.LinkClicked += async (_, _) => await DeactivateAsync();
+        new ToolTip().SetToolTip(_deactivate, "Free this computer's activation, to move TaxiPro to another PC.");
+        foreach (var c in new Control[] { _licence, _deactivate })
+            c.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+
+        var logLabel = new Label { Text = "LOG", Left = 24, Top = 596, AutoSize = true, ForeColor = Theme.Accent, Font = new Font("Segoe UI Semibold", 9f) };
         _log.Multiline = true;
         _log.ReadOnly = true;
         _log.ScrollBars = ScrollBars.Vertical;
@@ -127,11 +158,11 @@ public sealed class MainForm : Form
         _log.BorderStyle = BorderStyle.FixedSingle;
         _log.Font = new Font("Consolas", 9f);
         _log.WordWrap = false;
-        _log.SetBounds(24, 588, 732, 152);
+        _log.SetBounds(24, 618, 732, 152);
         _log.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
 
         Controls.AddRange(new Control[] { logo, title, by, _badge, _connection, _aircraft, _details, _master, retry, logs,
-            cardBreak, cardWeight, cardBrakes, cardTiller, _yield, _heavyPro, logLabel, _log });
+            cardBreak, cardWeight, cardBrakes, cardTiller, _yield, _heavyPro, _runInBackground, _startWithWindows, _licence, _deactivate, logLabel, _log });
 
         _loading = true;
         _master.Checked = _settings.MasterEnable;
@@ -141,8 +172,11 @@ public sealed class MainForm : Form
         _brakes.Checked = _settings.Brakes;
         _tiller.Checked = _settings.Tiller;
         _yield.Checked = _settings.YieldBrakesToHeavyPro;
+        _runInBackground.Checked = _settings.RunInBackground;
+        _startWithWindows.Checked = TrayIcon.StartsWithWindows;
         _loading = false;
-        foreach (var c in new[] { _master, _breakaway, _weight, _brakes, _tiller, _yield })
+        _startWithWindows.CheckedChanged += (_, _) => SetStartWithWindows();
+        foreach (var c in new[] { _master, _breakaway, _weight, _brakes, _tiller, _yield, _runInBackground })
             c.CheckedChanged += (_, _) => SettingsChanged();
         _weightFeel.ValueChanged += (_, _) => SettingsChanged();
         UpdateEnabled();
@@ -151,8 +185,107 @@ public sealed class MainForm : Form
         Logger.Shared.Info($"TaxiPro {typeof(MainForm).Assembly.GetName().Version?.ToString(3)} started. Settings: {_store.FilePath}");
         _link = new SimLink(_settings, Logger.Shared);
         _link.Status += s => UI(() => ShowStatus(s));
+
+        // Closing the window keeps TaxiPro running in the tray; Exit there quits.
+        _tray = new TrayIcon(this);
+        _tray.OpenRequested += ShowFromTray;
+        _tray.ExitRequested += ExitApp;
+        FormClosing += OnClosing;
+
+        _recheck.Tick += async (_, _) => await RecheckLicenceAsync();
+        _recheck.Start();
+        ShowLicence();
         ShowStatus(LiveStatus.Offline);
-        FormClosing += (_, _) => _link.Dispose();
+        if (startHidden && !IsHandleCreated)
+            CreateHandle(); // hidden in the tray, but status updates still need the window handle
+    }
+
+    // ---------------- Tray ----------------
+    protected override void SetVisibleCore(bool value)
+    {
+        // Started with Windows: stay hidden until opened from the tray.
+        base.SetVisibleCore(_allowShow && value);
+    }
+
+    private void ShowFromTray()
+    {
+        _allowShow = true;
+        Show();
+        if (WindowState == FormWindowState.Minimized)
+            WindowState = FormWindowState.Normal;
+        Activate();
+    }
+
+    private void ExitApp()
+    {
+        _exiting = true;
+        Close();
+    }
+
+    private void OnClosing(object? sender, FormClosingEventArgs e)
+    {
+        if (!_exiting && e.CloseReason == CloseReason.UserClosing && _settings.RunInBackground)
+        {
+            e.Cancel = true;
+            Hide();
+            _tray.TellStillRunning();
+            return;
+        }
+        _recheck.Stop();
+        _link.Dispose();
+        _tray.Dispose();
+    }
+
+    private void SetStartWithWindows()
+    {
+        if (_loading)
+            return;
+        try
+        {
+            TrayIcon.StartsWithWindows = _startWithWindows.Checked;
+            Logger.Shared.Info(_startWithWindows.Checked ? "TaxiPro starts with Windows (in the tray)." : "TaxiPro no longer starts with Windows.");
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or System.Security.SecurityException or IOException)
+        {
+            Logger.Shared.Warn("Could not change Start with Windows: " + ex.Message);
+        }
+    }
+
+    // ---------------- Licence ----------------
+    private void ShowLicence()
+    {
+        _licence.Text = LicenseGate.Unlocked ? "Licence " + Licence.MaskedKey() : "Not licensed";
+        _licence.ForeColor = LicenseGate.Unlocked ? Theme.Muted : Theme.Bad;
+    }
+
+    private async Task RecheckLicenceAsync()
+    {
+        var (ok, warning, message) = await Licence.RecheckAsync();
+        ShowLicence();
+        if (warning != null)
+            MessageBox.Show(this, warning, "TaxiPro", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        if (ok)
+            return;
+        // Revoked, removed from this PC, not signed by the real server, or the lease ran out:
+        // TaxiPro is already locked (everything passes through); close it.
+        ShowFromTray();
+        MessageBox.Show(this, message + "\n\nTaxiPro will close. Start it again to re-check or enter a licence key.", "TaxiPro",
+            MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        ExitApp();
+    }
+
+    private async Task DeactivateAsync()
+    {
+        if (MessageBox.Show(this, "Free this computer's TaxiPro activation, so you can activate TaxiPro on another PC?\n\nTaxiPro stops working here and closes.",
+                "Deactivate TaxiPro", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+            return;
+        _deactivate.Enabled = false;
+        var (ok, message) = await Licence.DeactivateAsync();
+        _deactivate.Enabled = true;
+        MessageBox.Show(this, ok ? "TaxiPro is deactivated on this computer and will close." : message, "TaxiPro",
+            MessageBoxButtons.OK, ok ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
+        if (ok)
+            ExitApp();
     }
 
     [System.Runtime.InteropServices.DllImport("dwmapi.dll")]
@@ -177,6 +310,7 @@ public sealed class MainForm : Form
         _settings.Brakes = _brakes.Checked;
         _settings.Tiller = _tiller.Checked;
         _settings.YieldBrakesToHeavyPro = _yield.Checked;
+        _settings.RunInBackground = _runInBackground.Checked;
         UpdateEnabled();
         _link.UpdateSettings(_settings);
         try { _store.Save(_settings); }
@@ -195,9 +329,11 @@ public sealed class MainForm : Form
     private void ShowStatus(LiveStatus s)
     {
         _badge.Text = s.Badge;
+        _tray.SetStatus(s.Connected ? s.Badge : "waiting for MSFS 2024");
         (_badge.BackColor, _badge.ForeColor) = s.Badge switch
         {
             "OFFLINE" or "WAITING" or "OFF" => (Theme.Field, Theme.Muted),
+            "NOT LICENSED" => (Theme.Bad, Theme.Ink),
             "HOLDING" or "BRAKING" => (Theme.Warn, Theme.OnAccent),
             "TAXIING" => (Theme.Good, Theme.OnAccent),
             _ => (Theme.Accent, Theme.OnAccent)
@@ -295,7 +431,7 @@ public sealed class MainForm : Form
         catch (Exception ex) when (ex is IOException or System.ComponentModel.Win32Exception) { }
     }
 
-    private static Image? LoadLogo()
+    internal static Image? LoadLogo()
     {
         using var stream = typeof(MainForm).Assembly.GetManifestResourceStream("TaxiPro.Logo.png");
         if (stream == null) return null;

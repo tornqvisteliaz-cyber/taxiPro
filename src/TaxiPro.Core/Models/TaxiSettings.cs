@@ -17,6 +17,8 @@ public sealed class TaxiSettings
     public bool Tiller { get; set; } = true;
     /// <summary>Leave the toe brakes to HeavyPro when HeavyPro is running and shaping them.</summary>
     public bool YieldBrakesToHeavyPro { get; set; } = true;
+    /// <summary>Closing the window keeps TaxiPro running in the tray.</summary>
+    public bool RunInBackground { get; set; } = true;
 
     public TaxiSettings Normalised()
     {

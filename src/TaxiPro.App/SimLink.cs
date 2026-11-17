@@ -396,12 +396,14 @@ public sealed class SimLink : IDisposable
         var o = _engine.Step(snapshot, input, settings, _heavyProOwnsBrakes, dt);
         _last = o;
 
+        // A second licence gate at the write path, independent of the engine's.
+        var unlocked = LicenseGate.Unlocked;
         try
         {
-            if (o.Speed.Write)
+            if (o.Speed.Write && unlocked)
                 _sim.SetDataOnSimObject(Def.VelocityWrite, SimConnect.SIMCONNECT_OBJECT_ID_USER, SIMCONNECT_DATA_SET_FLAG.DEFAULT, new OnePacket { Value = o.Speed.VelocityBodyZ });
 
-            if (o.OwnsBrakes && o.Brakes.Active)
+            if (o.OwnsBrakes && o.Brakes.Active && unlocked)
             {
                 if (o.BrakeRoute == BrakeRoute.Position && !_broken.Contains(Def.BrakeWrite))
                     _sim.SetDataOnSimObject(Def.BrakeWrite, SimConnect.SIMCONNECT_OBJECT_ID_USER, SIMCONNECT_DATA_SET_FLAG.DEFAULT, new BrakePacket { Left = o.Brakes.Left, Right = o.Brakes.Right });
@@ -419,7 +421,7 @@ public sealed class SimLink : IDisposable
             }
             _ownedBrakes = o.OwnsBrakes;
 
-            if (o.OwnsTiller && o.Steering.Active)
+            if (o.OwnsTiller && o.Steering.Active && unlocked)
                 Send(Ev.SteeringOut, Steering.AxisFromPosition(o.Steering.Position), Highest); // where hardware enters, like HeavyPro's Direct route
             if (_ownedTiller && !o.OwnsTiller && _tillerSeen)
                 Forward(Ev.SteeringAxis, _steerAxis);
@@ -554,6 +556,7 @@ public sealed class SimLink : IDisposable
             Brakes = s.Brakes,
             Tiller = s.Tiller,
             YieldBrakesToHeavyPro = s.YieldBrakesToHeavyPro,
+            RunInBackground = s.RunInBackground,
         };
         change?.Invoke(copy);
         return copy.Normalised();

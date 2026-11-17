@@ -7,13 +7,17 @@ Ground handling for Microsoft Flight Simulator 2024, by Rotaidem. A heavy jet sh
 - **Progressive brakes:** toe brakes and the brake keys build pressure smoothly, slower on heavier aircraft. A deadzone means the brakes never stick.
 - **Real tiller limits:** the tiller gives full nosewheel authority only when slow. Above 10 kt it fades to the pedals' 7° on Boeings, and on Airbuses it fades to nothing by 70–80 kt. The nosewheel turns at the steering actuator's rate instead of snapping.
 
-> **Status: 0.1.0, first build, not yet run against MSFS.** The physics is unit-tested (65 tests), but no effect has been confirmed in the sim. Each effect checks live whether the aircraft accepts it. If an aircraft overrides one, TaxiPro stops sending it and says so in the window and the log, rather than fighting the aircraft. Please send the log from a first session in the PMDG 777 and the iniBuilds A350.
+> **Status: 0.2.0, not yet run against MSFS.** The physics is unit-tested, but no effect has been confirmed in the sim. Each effect checks live whether the aircraft accepts it. If an aircraft overrides one, TaxiPro stops sending it and says so in the window and the log, rather than fighting the aircraft. Please send the log from a first session in the PMDG 777 and the iniBuilds A350.
 
 ## Use it
 
-1. Download [TaxiPro.zip](https://github.com/tornqvisteliaz-cyber/taxiPro/releases/download/latest-build/TaxiPro.zip) (built from `main` by GitHub Actions), unzip it anywhere, and run `TaxiPro.exe`. Or build it yourself: `dotnet build src/TaxiPro.App -c Release`.
+1. Download [TaxiProSetup.exe](https://github.com/tornqvisteliaz-cyber/taxiPro/releases/download/latest-build/TaxiProSetup.exe) (newest build of `main`) and run it. Enter your licence key and press **Install TaxiPro**. Windows may say *"Windows protected your PC"* because the installer is not code-signed yet: click **More info → Run anyway**. RotaHub users can install TaxiPro from RotaHub instead.
 2. Keep your MSFS bindings as they are: toe brakes on **Left/Right brake axis**, the brake key on **Brakes**. A tiller goes on **Steering axis** (the `AXIS_STEERING_SET` binding). TaxiPro captures those inputs the way HeavyPro captures the stick, and passes on anything it isn't shaping at that moment unchanged.
 3. Load a flight. TaxiPro connects by itself, recognises the aircraft and shows its ground profile.
+
+**Runs in the background:** closing the window keeps TaxiPro running in the system tray, where its tooltip shows what it is doing. Right-click the icon to open TaxiPro or exit it. **Start with Windows** (offered by the installer and in the app) starts it in the tray when you log in.
+
+**Updating** is running the newest `TaxiProSetup.exe` again (or RotaHub): it keeps your key and settings. **Uninstall** it from Windows' installed apps. Your settings are kept, and the uninstaller offers to free the licence activation.
 
 The badge shows what TaxiPro is doing:
 
@@ -25,9 +29,10 @@ The badge shows what TaxiPro is doing:
 | `PARKED` / `PUSHBACK` / `SLEW` / `IN THE AIR` | TaxiPro is standing by and not touching anything. |
 | `TAKEOFF / LANDING` | Above 40 kt. The speed belongs to the sim. |
 | `OFF` | The master switch is off. Every input passes straight through. |
+| `NOT LICENSED` | The licence did not check out. Every input passes straight through. |
 | `OFFLINE` | MSFS is not running yet. TaxiPro connects on its own. |
 
-**Retry checks** forgets what TaxiPro learnt about the loaded aircraft and tries every effect again. Logs are in `%AppData%\TaxiPro\logs`, and settings in `%AppData%\TaxiPro\settings.json`.
+**Retry checks** forgets what TaxiPro learnt about the loaded aircraft and tries every effect again. Logs are in `%AppData%\TaxiPro\logs`, and settings in `%AppData%\TaxiPro\settings.json`. TaxiPro is installed in `%LOCALAPPDATA%\TaxiPro`.
 
 ### Next to HeavyPro
 
@@ -48,6 +53,36 @@ TaxiPro stays out of the way when the aircraft is in the air, in slew, in pushba
 
 Each type has its own ground profile: PMDG 777 / 737 / 747, iniBuilds A350-900 / -1000, Fenix A320 / A321, A380, 787, 767, A330, A340, A300/A310, MD-11, TriStar, 757, A220, MD-80, 727, E-Jets, CRJ and 146. Any other aircraft gets a profile for its size class.
 
+## Licensing
+
+TaxiPro uses the same licensing as HeavyPro, from the shared `Rotaidem.Licensing` library (copied from HeavyPro; see [its README](src/Rotaidem.Licensing/README.md)).
+
+- **Keys** look like `TPRO-XXXX-XXXX-XXXX`. The check character catches typing mistakes before anything is sent.
+- **Activation:** the installer, or the **Activate TaxiPro** window when the app has no working key, activates the key on rotaidem.com for this PC. The product id is `rotaidem-taxipro`, with `taxipro` also accepted.
+- **Signed answers:** TaxiPro trusts a "valid" answer only if it carries a token signed by rotaidem.com's private key, naming this PC, this key and the random nonce TaxiPro just sent. The public key is built in from `packaging/licence-public-key.json`, the same server key HeavyPro uses. A fake server, an edited or copied `license.json`, a replayed answer and a clock turned back are all refused.
+- **Offline:** a saved signed answer starts TaxiPro at once, for up to 14 days between online checks (or the server's lease, if shorter).
+- **While running:** TaxiPro re-checks every 20 minutes. TaxiPro writes nothing unless a server-confirmed lease is running. That is checked in two independent places, `TaxiEngine` and the SimConnect write path. A revoked licence locks it at once and closes it.
+- **Moving PCs:** **Deactivate this PC** in the app (or the uninstaller) frees the activation.
+- **Debug builds skip the check**, so F5 works without a key. Release builds, which are all that ship, always check.
+
+Keys are saved in `%LOCALAPPDATA%\Rotaidem\taxipro\license.json`, and licence rejections are logged in `%AppData%\TaxiPro\logs\licence.log`.
+
+**Before selling TaxiPro**, the website needs a `rotaidem-taxipro` product to issue `TPRO` keys, and RotaHub needs to list `rotaidem-taxipro`. Until then every key is refused with "wrong product" or "not found".
+
+## Releases
+
+GitHub Actions builds every push and pull request, and runs the unit tests first. Every build of `main` replaces the files of the `latest-build` pre-release. A tag like `v0.2.0` makes a versioned release, with its notes taken from `CHANGELOG.md`.
+
+| File | What it is |
+|---|---|
+| `TaxiProSetup.exe` / `TaxiProSetup.zip` | The installer, with the app inside (a zip for networks that block `.exe` downloads) |
+| `TaxiPro-rotahub.zip` | The package RotaHub installs: `app\` goes to `%LOCALAPPDATA%\TaxiPro` |
+| `rotahub.jws` | Tags only: the release manifest RotaHub trusts. It is signed by `packaging/New-HubManifest.ps1` with Rotaidem's release key (the `UPDATE_SIGNING_KEY` secret, as in HeavyPro), which must match `packaging/update-public-key.json` |
+| `TaxiProFeasibility.zip` | The feasibility test |
+| `SHA256SUMS.txt` | Checksums of all of the above |
+
+Code signing works as in HeavyPro: `packaging/Sign-File.ps1` signs `TaxiPro.exe` and `TaxiProSetup.exe` once the `CODE_SIGNING_PFX_BASE64` and `CODE_SIGNING_PFX_PASSWORD` secrets exist. Until then it only warns.
+
 ## Project layout
 
 Same structure as HeavyPro: the physics is a plain library with no SimConnect dependency, so it can be unit-tested anywhere.
@@ -62,8 +97,13 @@ src/TaxiPro.Core         Ground physics, profiles, settings (netstandard2.0)
   Physics/AcceptanceMonitor whether the aircraft takes a write
   Models/GroundProfiles    per-type ground data
   Services/HeavyProLink    who owns the brakes when HeavyPro runs
+  LicenseGate              no writes without a confirmed licence lease
 src/TaxiPro.Core.Tests   xUnit tests (net8.0): dotnet test src/TaxiPro.Core.Tests
-src/TaxiPro.App          Windows app (WinForms, .NET Framework 4.8): SimLink + MainForm
+src/TaxiPro.App          Windows app (WinForms, .NET Framework 4.8): SimLink, MainForm, tray, licence
+src/TaxiPro.Setup        TaxiProSetup.exe: activation, install, update, uninstall
+src/Rotaidem.Licensing   Rotaidem's licence library (shared with HeavyPro)
+src/Shared               TaxiProLicense: product id, key prefix, server (linked into app and setup)
+packaging/               Payload, signing and RotaHub manifest scripts; licence and release public keys
 tools/FeasibilityTest    The original feasibility test
 lib/                     SimConnect runtime from the MSFS 2024 SDK
 ```
