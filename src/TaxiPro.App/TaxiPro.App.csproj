@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <!-- .NET Framework 4.8 ships with Windows 10 and 11: no runtime to install, like HeavyPro. -->
+    <TargetFramework>net48</TargetFramework>
+    <PlatformTarget>x64</PlatformTarget>
+    <AssemblyName>TaxiPro</AssemblyName>
+    <RootNamespace>TaxiPro.App</RootNamespace>
+    <ApplicationIcon>Assets\TaxiPro.ico</ApplicationIcon>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\TaxiPro.Core\TaxiPro.Core.csproj" />
+    <!-- From the MSFS 2024 SDK; see lib/README.txt. -->
+    <Reference Include="Microsoft.FlightSimulator.SimConnect"><HintPath>..\..\lib\Microsoft.FlightSimulator.SimConnect.dll</HintPath></Reference>
+    <None Include="..\..\lib\SimConnect.dll" Link="SimConnect.dll"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Drawing" />
+    <EmbeddedResource Include="Assets\Logo.png" LogicalName="TaxiPro.Logo.png" />
+    <Compile Include="..\TaxiPro.Core\Polyfills.cs" Link="Polyfills.cs" />
+    <!-- .NET Framework 4.8 reference assemblies, so it builds without Visual Studio (GitHub Actions, Linux). -->
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+  </ItemGroup>
+</Project>

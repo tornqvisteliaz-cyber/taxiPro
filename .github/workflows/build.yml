@@ -11,35 +11,67 @@ jobs:
   build:
     runs-on: windows-latest
     permissions:
-      contents: write  # publish the zip on the Releases page
+      contents: write  # publish the zips on the Releases page
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
-      - name: Build the feasibility test
-        run: dotnet build tools/FeasibilityTest -c Release
-      - name: Package the exe with its SimConnect files
+      - name: Version from the tag
+        # A tag like v0.1.0 builds TaxiPro 0.1.0 (Directory.Build.props reads TP_VERSION).
+        if: startsWith(github.ref, 'refs/tags/v')
         shell: pwsh
         run: |
+          $tag = $env:GITHUB_REF_NAME
+          if ($tag -notmatch '^v(\d+\.\d+\.\d+)$') { throw "Release tags look like v0.1.0, not $tag." }
+          "TP_VERSION=$($Matches[1])" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+      - name: Run unit tests
+        run: dotnet test src/TaxiPro.Core.Tests/TaxiPro.Core.Tests.csproj -c Release
+      - name: Build TaxiPro and the feasibility test
+        run: |
+          dotnet build src/TaxiPro.App -c Release
+          dotnet build tools/FeasibilityTest -c Release
+      - name: Package the zips with their SimConnect files
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          # TaxiPro: the exe, its config and every DLL next to it (Core, System.Text.Json and its
+          # dependencies, SimConnect). Symbols stay out.
+          $bin = 'src/TaxiPro.App/bin/Release/net48'
+          $out = 'dist/TaxiPro'
+          New-Item -ItemType Directory -Force -Path $out | Out-Null
+          foreach ($f in 'TaxiPro.exe', 'TaxiPro.exe.config', 'TaxiPro.Core.dll', 'Microsoft.FlightSimulator.SimConnect.dll', 'SimConnect.dll', 'System.Text.Json.dll') {
+            if (-not (Test-Path "$bin/$f")) { throw "TaxiPro build output is missing $f." }
+          }
+          Copy-Item "$bin/*.exe", "$bin/*.exe.config", "$bin/*.dll" $out
+          Copy-Item lib/NOTICE-MSFS-SimConnect.txt, CHANGELOG.md $out
+          Compress-Archive -Path "$out/*" -DestinationPath dist/TaxiPro.zip -Force
+
           $bin = 'tools/FeasibilityTest/bin/Release/net48'
           $out = 'dist/TaxiProFeasibility'
           New-Item -ItemType Directory -Force -Path $out | Out-Null
           foreach ($f in 'TaxiProFeasibility.exe', 'TaxiProFeasibility.exe.config', 'Microsoft.FlightSimulator.SimConnect.dll', 'SimConnect.dll') {
-            if (-not (Test-Path "$bin/$f")) { throw "Build output is missing $f." }
+            if (-not (Test-Path "$bin/$f")) { throw "Feasibility build output is missing $f." }
             Copy-Item "$bin/$f" $out
           }
           Copy-Item lib/NOTICE-MSFS-SimConnect.txt $out
           Compress-Archive -Path "$out/*" -DestinationPath dist/TaxiProFeasibility.zip -Force
-          $hash = (Get-FileHash dist/TaxiProFeasibility.zip -Algorithm SHA256).Hash.ToLower()
-          "$hash  TaxiProFeasibility.zip" | Set-Content dist/SHA256SUMS.txt -Encoding ascii
-          Write-Host "SHA-256: $hash"
+
+          $lines = foreach ($name in 'TaxiPro.zip', 'TaxiProFeasibility.zip') {
+            "{0}  {1}" -f (Get-FileHash "dist/$name" -Algorithm SHA256).Hash.ToLower(), $name
+          }
+          $lines | Set-Content dist/SHA256SUMS.txt -Encoding ascii
+          Write-Host ($lines -join "`n")
       - uses: actions/upload-artifact@v4
         with:
-          name: TaxiProFeasibility
-          path: dist/TaxiProFeasibility.zip
+          name: TaxiPro
+          path: |
+            dist/TaxiPro.zip
+            dist/TaxiProFeasibility.zip
+            dist/SHA256SUMS.txt
       # Artifacts need a GitHub login, so every build of main also replaces the files of the
-      # "latest-build" pre-release; this link always gives the newest one:
+      # "latest-build" pre-release; these links always give the newest ones:
+      #   https://github.com/tornqvisteliaz-cyber/taxiPro/releases/download/latest-build/TaxiPro.zip
       #   https://github.com/tornqvisteliaz-cyber/taxiPro/releases/download/latest-build/TaxiProFeasibility.zip
       - name: Publish the latest build
         if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
@@ -52,7 +84,7 @@ jobs:
             gh release create latest-build --title "TaxiPro latest build" --prerelease --notes "Newest build of TaxiPro, rebuilt from main automatically."
             if ($LASTEXITCODE -ne 0) { throw "Could not create the latest-build release." }
           }
-          gh release upload latest-build dist/TaxiProFeasibility.zip dist/SHA256SUMS.txt --clobber
+          gh release upload latest-build dist/TaxiPro.zip dist/TaxiProFeasibility.zip dist/SHA256SUMS.txt --clobber
           if ($LASTEXITCODE -ne 0) { throw "Could not upload to the latest-build release." }
       - name: Publish a versioned release
         if: startsWith(github.ref, 'refs/tags/v')
@@ -66,5 +98,5 @@ jobs:
             gh release create $tag --title "TaxiPro $tag" --generate-notes --latest
             if ($LASTEXITCODE -ne 0) { throw "Could not create release $tag." }
           }
-          gh release upload $tag dist/TaxiProFeasibility.zip dist/SHA256SUMS.txt --clobber
+          gh release upload $tag dist/TaxiPro.zip dist/TaxiProFeasibility.zip dist/SHA256SUMS.txt --clobber
           if ($LASTEXITCODE -ne 0) { throw "Could not upload to release $tag." }
