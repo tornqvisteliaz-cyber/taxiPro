@@ -11,7 +11,7 @@ $ErrorActionPreference = "Stop"
 $repo = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $output = Join-Path $repo "src/TaxiPro.App/bin/$Configuration/net48"
 
-foreach ($required in "TaxiPro.exe", "TaxiPro.exe.config", "TaxiPro.Core.dll", "Rotaidem.Licensing.dll", "System.Text.Json.dll",
+foreach ($required in "TaxiPro.exe", "TaxiPro.exe.config", "TaxiPro.Core.dll", "System.Text.Json.dll",
                       "Microsoft.FlightSimulator.SimConnect.dll", "SimConnect.dll") {
     if (-not (Test-Path (Join-Path $output $required))) { throw "The app build is missing $required ($output)." }
 }

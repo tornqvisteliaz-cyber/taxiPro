@@ -78,7 +78,7 @@ public sealed class SimLink : IDisposable
 
     // HeavyPro, checked every few seconds.
     private double _nextHeavyProCheck;
-    private bool _heavyProRunning, _heavyProOwnsBrakes;
+    private HeavyProBrakes _heavyPro = HeavyProBrakes.NotRunning;
 
     private double _lastStep = -1, _nextPublish;
     private TaxiOutput? _last;
@@ -297,17 +297,43 @@ public sealed class SimLink : IDisposable
         {
             var running = Process.GetProcessesByName(HeavyProLink.ProcessName).Length > 0;
             var json = running && File.Exists(HeavyProLink.SettingsPath) ? File.ReadAllText(HeavyProLink.SettingsPath) : null;
-            var owns = HeavyProLink.OwnsBrakes(running, json);
-            if (running != _heavyProRunning)
-                _log.Info(running ? "HeavyPro is running." : "HeavyPro closed.");
-            if (owns != _heavyProOwnsBrakes)
-                _log.Info(owns ? "HeavyPro is shaping the toe brakes: TaxiPro leaves them to it." : "TaxiPro shapes the toe brakes.");
-            _heavyProRunning = running;
-            _heavyProOwnsBrakes = owns;
+            var now = HeavyProLink.Brakes(running, json, running ? MsfsProfiles() : Array.Empty<string>());
+            if (now.Running != _heavyPro.Running)
+                _log.Info(now.Running ? "HeavyPro is running: TaxiPro never touches the stick or the rudder, which are HeavyPro's." : "HeavyPro closed.");
+            if (now.Why != _heavyPro.Why && now.Running)
+                _log.Info(now.OwnsBrakes ? "HeavyPro is shaping the toe brakes: TaxiPro leaves them to it." : now.Why + ": TaxiPro shapes the brakes MSFS sends.");
+            _heavyPro = now;
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or System.ComponentModel.Win32Exception)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or System.ComponentModel.Win32Exception or System.Security.SecurityException)
         {
         }
+    }
+
+    /// <summary>
+    /// The MSFS 2024 control profiles, from the same place HeavyPro reads them:
+    /// Steam\userdata\*\2537590\remote\inputprofile_*. Empty when MSFS is not the Steam version.
+    /// </summary>
+    private static IEnumerable<string> MsfsProfiles()
+    {
+        var result = new List<string>();
+        var steam = Microsoft.Win32.Registry.GetValue(@"HKEY_CURRENT_USER\Software\Valve\Steam", "SteamPath", null) as string;
+        if (string.IsNullOrEmpty(steam))
+            return result;
+        var userdata = Path.Combine(steam!.Replace('/', '\\'), "userdata");
+        if (!Directory.Exists(userdata))
+            return result;
+        foreach (var user in Directory.GetDirectories(userdata))
+        {
+            var remote = Path.Combine(user, HeavyProLink.MsfsSteamAppId, "remote");
+            if (!Directory.Exists(remote))
+                continue;
+            foreach (var file in Directory.GetFiles(remote, "inputprofile_*"))
+            {
+                try { result.Add(File.ReadAllText(file)); }
+                catch (IOException) { }
+            }
+        }
+        return result;
     }
 
     // ---------------- Inputs ----------------
@@ -393,17 +419,15 @@ public sealed class SimLink : IDisposable
         if (_broken.Contains(Def.Engines) || _broken.Contains(Def.VelocityWrite))
             settings = Copy(settings, s => { s.Breakaway = false; s.Weight = false; });
         var input = new TaxiInputs(Brakes.PedalFromAxis(_leftAxis), Brakes.PedalFromAxis(_rightAxis), Steering.TillerFromAxis(_steerAxis));
-        var o = _engine.Step(snapshot, input, settings, _heavyProOwnsBrakes, dt);
+        var o = _engine.Step(snapshot, input, settings, _heavyPro.OwnsBrakes, dt);
         _last = o;
 
-        // A second licence gate at the write path, independent of the engine's.
-        var unlocked = LicenseGate.Unlocked;
         try
         {
-            if (o.Speed.Write && unlocked)
+            if (o.Speed.Write)
                 _sim.SetDataOnSimObject(Def.VelocityWrite, SimConnect.SIMCONNECT_OBJECT_ID_USER, SIMCONNECT_DATA_SET_FLAG.DEFAULT, new OnePacket { Value = o.Speed.VelocityBodyZ });
 
-            if (o.OwnsBrakes && o.Brakes.Active && unlocked)
+            if (o.OwnsBrakes && o.Brakes.Active)
             {
                 if (o.BrakeRoute == BrakeRoute.Position && !_broken.Contains(Def.BrakeWrite))
                     _sim.SetDataOnSimObject(Def.BrakeWrite, SimConnect.SIMCONNECT_OBJECT_ID_USER, SIMCONNECT_DATA_SET_FLAG.DEFAULT, new BrakePacket { Left = o.Brakes.Left, Right = o.Brakes.Right });
@@ -421,7 +445,7 @@ public sealed class SimLink : IDisposable
             }
             _ownedBrakes = o.OwnsBrakes;
 
-            if (o.OwnsTiller && o.Steering.Active && unlocked)
+            if (o.OwnsTiller && o.Steering.Active)
                 Send(Ev.SteeringOut, Steering.AxisFromPosition(o.Steering.Position), Highest); // where hardware enters, like HeavyPro's Direct route
             if (_ownedTiller && !o.OwnsTiller && _tillerSeen)
                 Forward(Ev.SteeringAxis, _steerAxis);
@@ -513,7 +537,7 @@ public sealed class SimLink : IDisposable
         var o = _last;
         var connected = _sim != null;
         Status?.Invoke(!connected || !_haveCore || o == null
-            ? LiveStatus.Offline with { Connected = connected, Badge = connected ? "WAITING" : "OFFLINE", HeavyProRunning = _heavyProRunning }
+            ? LiveStatus.Offline with { Connected = connected, Badge = connected ? "WAITING" : "OFFLINE", HeavyProRunning = _heavyPro.Running, HeavyProNote = _heavyPro.Why }
             : new LiveStatus
             {
                 Connected = true,
@@ -541,7 +565,8 @@ public sealed class SimLink : IDisposable
                 TillerDegrees = o.Profile.TillerDegrees,
                 TillerNote = o.TillerNote,
                 TillerInputSeen = _tillerSeen,
-                HeavyProRunning = _heavyProRunning,
+                HeavyProRunning = _heavyPro.Running,
+                HeavyProNote = _heavyPro.Why,
             });
     }
 

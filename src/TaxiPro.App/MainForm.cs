@@ -2,7 +2,6 @@ using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Windows.Forms;
-using TaxiPro.Core;
 using TaxiPro.Core.Models;
 using TaxiPro.Core.Physics;
 using TaxiPro.Core.Services;
@@ -43,13 +42,11 @@ public sealed class MainForm : Form
 
     private readonly CheckBox _yield = new() { Text = "Leave the toe brakes to HeavyPro while it shapes them" };
     private readonly Label _heavyPro = new();
+    private readonly ToolTip _heavyProTip = new();
     private readonly CheckBox _runInBackground = new() { Text = "Keep running in the tray when closed" };
     private readonly CheckBox _startWithWindows = new() { Text = "Start with Windows" };
-    private readonly Label _licence = new();
-    private readonly LinkLabel _deactivate = new() { Text = "Deactivate this PC" };
     private readonly TextBox _log = new();
     private readonly TrayIcon _tray;
-    private readonly System.Windows.Forms.Timer _recheck = new() { Interval = (int)Licence.RecheckInterval.TotalMilliseconds };
     private bool _loading;
     private bool _allowShow;
     private bool _exiting;
@@ -136,18 +133,6 @@ public sealed class MainForm : Form
         }
         _runInBackground.SetBounds(24, 556, 270, 26);
         _startWithWindows.SetBounds(300, 556, 170, 26);
-        _licence.SetBounds(470, 558, 160, 22);
-        _licence.TextAlign = ContentAlignment.MiddleRight;
-        _licence.Font = new Font("Segoe UI", 9f);
-        _licence.ForeColor = Theme.Muted;
-        _deactivate.SetBounds(634, 558, 122, 22);
-        _deactivate.TextAlign = ContentAlignment.MiddleRight;
-        _deactivate.Font = new Font("Segoe UI", 9f);
-        _deactivate.LinkColor = _deactivate.ActiveLinkColor = Theme.Accent;
-        _deactivate.LinkClicked += async (_, _) => await DeactivateAsync();
-        new ToolTip().SetToolTip(_deactivate, "Free this computer's activation, to move TaxiPro to another PC.");
-        foreach (var c in new Control[] { _licence, _deactivate })
-            c.Anchor = AnchorStyles.Top | AnchorStyles.Right;
 
         var logLabel = new Label { Text = "LOG", Left = 24, Top = 596, AutoSize = true, ForeColor = Theme.Accent, Font = new Font("Segoe UI Semibold", 9f) };
         _log.Multiline = true;
@@ -162,7 +147,7 @@ public sealed class MainForm : Form
         _log.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
 
         Controls.AddRange(new Control[] { logo, title, by, _badge, _connection, _aircraft, _details, _master, retry, logs,
-            cardBreak, cardWeight, cardBrakes, cardTiller, _yield, _heavyPro, _runInBackground, _startWithWindows, _licence, _deactivate, logLabel, _log });
+            cardBreak, cardWeight, cardBrakes, cardTiller, _yield, _heavyPro, _runInBackground, _startWithWindows, logLabel, _log });
 
         _loading = true;
         _master.Checked = _settings.MasterEnable;
@@ -192,9 +177,6 @@ public sealed class MainForm : Form
         _tray.ExitRequested += ExitApp;
         FormClosing += OnClosing;
 
-        _recheck.Tick += async (_, _) => await RecheckLicenceAsync();
-        _recheck.Start();
-        ShowLicence();
         ShowStatus(LiveStatus.Offline);
         if (startHidden && !IsHandleCreated)
             CreateHandle(); // hidden in the tray, but status updates still need the window handle
@@ -231,7 +213,6 @@ public sealed class MainForm : Form
             _tray.TellStillRunning();
             return;
         }
-        _recheck.Stop();
         _link.Dispose();
         _tray.Dispose();
     }
@@ -249,53 +230,6 @@ public sealed class MainForm : Form
         {
             Logger.Shared.Warn("Could not change Start with Windows: " + ex.Message);
         }
-    }
-
-    // ---------------- Licence ----------------
-    private void ShowLicence()
-    {
-        _licence.Text = LicenseGate.Unlocked ? "Licence " + Licence.MaskedKey() : "Not licensed";
-        _licence.ForeColor = LicenseGate.Unlocked ? Theme.Muted : Theme.Bad;
-    }
-
-    private async Task RecheckLicenceAsync()
-    {
-        var (ok, warning, message) = await Licence.RecheckAsync();
-        ShowLicence();
-        if (warning != null)
-            MessageBox.Show(this, warning, "TaxiPro", MessageBoxButtons.OK, MessageBoxIcon.Information);
-        if (ok)
-            return;
-        // Revoked, removed from this PC, not signed by the real server, or the lease ran out:
-        // TaxiPro is already locked (everything passes through); close it.
-        ShowFromTray();
-        MessageBox.Show(this, message + "\n\nTaxiPro will close. Start it again to re-check or enter a licence key.", "TaxiPro",
-            MessageBoxButtons.OK, MessageBoxIcon.Warning);
-        ExitApp();
-    }
-
-    private async Task DeactivateAsync()
-    {
-        if (MessageBox.Show(this, "Free this computer's TaxiPro activation, so you can activate TaxiPro on another PC?\n\nTaxiPro stops working here and closes.",
-                "Deactivate TaxiPro", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
-            return;
-        _deactivate.Enabled = false;
-        var (ok, message) = await Licence.DeactivateAsync();
-        _deactivate.Enabled = true;
-        MessageBox.Show(this, ok ? "TaxiPro is deactivated on this computer and will close." : message, "TaxiPro",
-            MessageBoxButtons.OK, ok ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
-        if (ok)
-            ExitApp();
-    }
-
-    [System.Runtime.InteropServices.DllImport("dwmapi.dll")]
-    private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
-
-    protected override void OnHandleCreated(EventArgs e)
-    {
-        base.OnHandleCreated(e);
-        var dark = 1; // dark title bar (Windows 10 2004+ and 11)
-        try { DwmSetWindowAttribute(Handle, 20, ref dark, sizeof(int)); } catch (Exception) { }
     }
 
     // ---------------- Settings ----------------
@@ -333,7 +267,6 @@ public sealed class MainForm : Form
         (_badge.BackColor, _badge.ForeColor) = s.Badge switch
         {
             "OFFLINE" or "WAITING" or "OFF" => (Theme.Field, Theme.Muted),
-            "NOT LICENSED" => (Theme.Bad, Theme.Ink),
             "HOLDING" or "BRAKING" => (Theme.Warn, Theme.OnAccent),
             "TAXIING" => (Theme.Good, Theme.OnAccent),
             _ => (Theme.Accent, Theme.OnAccent)
@@ -377,6 +310,9 @@ public sealed class MainForm : Form
         _tillerLive.ForeColor = Theme.Muted;
 
         _heavyPro.Text = s.HeavyProRunning ? "● HeavyPro running" : "HeavyPro not running";
+        _heavyProTip.SetToolTip(_heavyPro, s.HeavyProRunning
+            ? s.HeavyProNote + ". TaxiPro never touches the stick or the rudder, which are HeavyPro's."
+            : "TaxiPro runs alongside HeavyPro: HeavyPro has the stick and rudder, TaxiPro the ground.");
         _heavyPro.ForeColor = s.HeavyProRunning ? Theme.Good : Theme.Muted;
     }
 

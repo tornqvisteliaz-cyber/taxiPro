@@ -3,7 +3,6 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows.Forms;
-using TaxiPro.Core;
 
 namespace TaxiPro.App;
 
@@ -25,12 +24,6 @@ static class Program
         Application.SetCompatibleTextRenderingDefault(false);
         Application.ThreadException += (_, e) => Crash(e.Exception);
         AppDomain.CurrentDomain.UnhandledException += (_, e) => { if (e.ExceptionObject is Exception ex) Crash(ex); };
-
-        var lease = Licence.EnsureLicensed();
-        if (lease is null)
-            return;
-        // Licence confirmed: TaxiPro may write until the lease ends; the recheck loop extends it.
-        LicenseGate.Unlock(lease.Value);
 
         var background = args.Any(a => string.Equals(a, TrayIcon.BackgroundArg, StringComparison.OrdinalIgnoreCase));
         Application.Run(new MainForm(background));
