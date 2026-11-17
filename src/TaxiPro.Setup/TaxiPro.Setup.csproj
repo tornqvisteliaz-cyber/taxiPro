@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <!-- .NET Framework 4.8 ships with Windows 10 and 11: one small exe, no runtime to bundle (as HeavyProSetup). -->
+    <TargetFramework>net48</TargetFramework>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <AssemblyName>TaxiProSetup</AssemblyName>
+    <RootNamespace>TaxiPro.Setup</RootNamespace>
+    <ApplicationIcon>..\TaxiPro.App\Assets\TaxiPro.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+  </PropertyGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="..\TaxiPro.App\Assets\Logo.png" LogicalName="TaxiPro.Setup.Logo.png" />
+    <!-- The app itself: packaging/New-AppPayload.ps1 zips the app build; CI passes -p:PayloadZipPath=... -->
+    <EmbeddedResource Include="$(PayloadZipPath)" LogicalName="TaxiProPayload.zip" Condition="'$(PayloadZipPath)' != '' and Exists('$(PayloadZipPath)')" />
+    <!-- The licensing library has no dependencies, so its source is compiled in and the setup stays one file. -->
+    <Compile Include="..\Rotaidem.Licensing\*.cs" Link="Licensing\%(Filename)%(Extension)" />
+    <Compile Include="..\Shared\TaxiProLicense.cs" Link="TaxiProLicense.cs" />
+    <EmbeddedResource Include="..\..\packaging\licence-public-key.json" LogicalName="TaxiPro.LicensePublicKey.json" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.IO.Compression" />
+    <Reference Include="System.IO.Compression.FileSystem" />
+    <Reference Include="System.Net.Http" />
+    <Reference Include="System.Runtime.Serialization" />
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+  </ItemGroup>
+</Project>

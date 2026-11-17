@@ -11,35 +11,147 @@ jobs:
   build:
     runs-on: windows-latest
     permissions:
-      contents: write  # publish the zip on the Releases page
+      contents: write  # publish the installer on the Releases page
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
-      - name: Build the feasibility test
-        run: dotnet build tools/FeasibilityTest -c Release
-      - name: Package the exe with its SimConnect files
+      - name: Version from the tag
+        # A tag like v0.2.0 builds TaxiPro 0.2.0 (Directory.Build.props reads TP_VERSION).
+        if: startsWith(github.ref, 'refs/tags/v')
         shell: pwsh
         run: |
+          $tag = $env:GITHUB_REF_NAME
+          if ($tag -notmatch '^v(\d+\.\d+\.\d+)$') { throw "Release tags look like v0.2.0, not $tag." }
+          "TP_VERSION=$($Matches[1])" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+      - name: Built-in licence public key
+        # TaxiPro trusts only licence answers signed by rotaidem.com. Its public key is built in from
+        # packaging/licence-public-key.json (the key rotaidem.com publishes, shared with HeavyPro).
+        shell: pwsh
+        run: |
+          $file = 'packaging/licence-public-key.json'
+          if (-not (Test-Path $file)) { throw "Missing ${file}: TaxiPro would refuse every licence." }
+          $key = Get-Content $file -Raw | ConvertFrom-Json
+          if ($key.keys) { $key = $key.keys[0] }
+          if ($key.kty -ne 'RSA' -or -not $key.n) { throw "$file is not an RSA public key." }
+          Write-Host "Licence public key: $($key.kid)"
+      - name: Run unit tests
+        run: dotnet test src/TaxiPro.Core.Tests/TaxiPro.Core.Tests.csproj -c Release
+      - name: Build TaxiPro and the feasibility test
+        shell: pwsh
+        run: |
+          dotnet build src/TaxiPro.App -c Release
+          if ($LASTEXITCODE -ne 0) { throw "App build failed." }
+          dotnet build tools/FeasibilityTest -c Release
+          if ($LASTEXITCODE -ne 0) { throw "Feasibility test build failed." }
+      - name: Sign TaxiPro.exe
+        # No-op (a warning) until the CODE_SIGNING_PFX_BASE64 / CODE_SIGNING_PFX_PASSWORD secrets are added.
+        shell: pwsh
+        env:
+          CODE_SIGNING_PFX_BASE64: ${{ secrets.CODE_SIGNING_PFX_BASE64 }}
+          CODE_SIGNING_PFX_PASSWORD: ${{ secrets.CODE_SIGNING_PFX_PASSWORD }}
+        run: |
+          & packaging/Sign-File.ps1 -Path src/TaxiPro.App/bin/Release/net48/TaxiPro.exe
+      - name: App payload
+        shell: pwsh
+        run: |
+          & packaging/New-AppPayload.ps1 -Configuration Release
+      - name: Build TaxiProSetup.exe (one file, .NET Framework 4.8, the app inside)
+        shell: pwsh
+        run: |
+          dotnet build src/TaxiPro.Setup -c Release "-p:PayloadZipPath=$pwd\packaging\TaxiProAppPayload.zip"
+          if ($LASTEXITCODE -ne 0) { throw "Setup build failed." }
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Copy-Item src/TaxiPro.Setup/bin/Release/net48/TaxiProSetup.exe dist/
+          $size = (Get-Item dist/TaxiProSetup.exe).Length
+          $payload = (Get-Item packaging/TaxiProAppPayload.zip).Length
+          Write-Host ("TaxiProSetup.exe is {0:N1} MB, app payload {1:N1} MB" -f ($size / 1MB), ($payload / 1MB))
+          if ($size -lt $payload) { throw "TaxiProSetup.exe is smaller than the app payload; the payload was not embedded." }
+      - name: Sign TaxiProSetup.exe
+        shell: pwsh
+        env:
+          CODE_SIGNING_PFX_BASE64: ${{ secrets.CODE_SIGNING_PFX_BASE64 }}
+          CODE_SIGNING_PFX_PASSWORD: ${{ secrets.CODE_SIGNING_PFX_PASSWORD }}
+        run: |
+          & packaging/Sign-File.ps1 -Path dist/TaxiProSetup.exe
+      - name: Zips for testers and RotaHub
+        shell: pwsh
+        run: |
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          # Some browsers, mail filters and company networks block bare .exe downloads; a zip gets through.
+          Compress-Archive -Path dist/TaxiProSetup.exe -DestinationPath dist/TaxiProSetup.zip -Force
+
+          # RotaHub (Rotaidem's add-on manager) installs TaxiPro from this zip: app\ is the app payload.
+          # TaxiPro has no in-game panel, so there is no community\ part.
+          $pkg = 'dist/rotahub-pkg'
+          Remove-Item -Recurse -Force $pkg -ErrorAction SilentlyContinue
+          [System.IO.Compression.ZipFile]::ExtractToDirectory((Resolve-Path packaging/TaxiProAppPayload.zip), "$pwd/$pkg/app")
+          if (-not (Test-Path "$pkg/app/TaxiPro.exe")) { throw 'The RotaHub package has no app/TaxiPro.exe.' }
+          Compress-Archive -Path "$pkg/*" -DestinationPath dist/TaxiPro-rotahub.zip -Force
+
           $bin = 'tools/FeasibilityTest/bin/Release/net48'
           $out = 'dist/TaxiProFeasibility'
           New-Item -ItemType Directory -Force -Path $out | Out-Null
           foreach ($f in 'TaxiProFeasibility.exe', 'TaxiProFeasibility.exe.config', 'Microsoft.FlightSimulator.SimConnect.dll', 'SimConnect.dll') {
-            if (-not (Test-Path "$bin/$f")) { throw "Build output is missing $f." }
+            if (-not (Test-Path "$bin/$f")) { throw "Feasibility build output is missing $f." }
             Copy-Item "$bin/$f" $out
           }
           Copy-Item lib/NOTICE-MSFS-SimConnect.txt $out
           Compress-Archive -Path "$out/*" -DestinationPath dist/TaxiProFeasibility.zip -Force
-          $hash = (Get-FileHash dist/TaxiProFeasibility.zip -Algorithm SHA256).Hash.ToLower()
-          "$hash  TaxiProFeasibility.zip" | Set-Content dist/SHA256SUMS.txt -Encoding ascii
-          Write-Host "SHA-256: $hash"
+      - name: Release notes from CHANGELOG.md
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: |
+          $section = @()
+          $inside = $false
+          foreach ($line in Get-Content CHANGELOG.md -Encoding utf8) {
+            if ($line -match '^## ') {
+              if ($inside) { break }
+              $inside = $line -match "^## v?$([regex]::Escape($env:TP_VERSION))(\s|$)"
+              continue
+            }
+            if ($inside) { $section += $line }
+          }
+          $notes = ($section -join "`n").Trim()
+          if ($notes) { Set-Content -Path release-notes.md -Value $notes -Encoding utf8 }
+          else { Write-Warning "CHANGELOG.md has no section for $env:TP_VERSION; the release gets generated notes." }
+      - name: Sign the RotaHub manifest
+        # rotahub.jws tells RotaHub about this release, signed with Rotaidem's release key (the same
+        # UPDATE_SIGNING_KEY secret as HeavyPro; it must be added to this repository too).
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        env:
+          UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
+        run: |
+          if (-not $env:UPDATE_SIGNING_KEY) { throw 'Add the UPDATE_SIGNING_KEY secret (the one HeavyPro uses) to this repository: RotaHub only installs signed releases.' }
+          $tag = $env:GITHUB_REF_NAME
+          $url = "https://github.com/${{ github.repository }}/releases/download/$tag/TaxiPro-rotahub.zip"
+          & packaging/New-HubManifest.ps1 -Product rotaidem-taxipro -Name TaxiPro -Version $env:TP_VERSION `
+            -Package dist/TaxiPro-rotahub.zip -Url $url -Out dist/rotahub.jws `
+            -AppDir '%LOCALAPPDATA%\TaxiPro' -AppExe TaxiPro.exe -Shortcut TaxiPro -Processes TaxiPro `
+            -Notes $(if (Test-Path release-notes.md) { Get-Content release-notes.md -Raw -Encoding utf8 } else { '' })
+      - name: Checksums for every release file
+        shell: pwsh
+        run: |
+          $names = 'TaxiProSetup.exe', 'TaxiProSetup.zip', 'TaxiPro-rotahub.zip', 'rotahub.jws', 'TaxiProFeasibility.zip'
+          $lines = foreach ($name in $names) {
+            if (Test-Path "dist/$name") { "{0}  {1}" -f (Get-FileHash "dist/$name" -Algorithm SHA256).Hash.ToLower(), $name }
+          }
+          $lines | Set-Content dist/SHA256SUMS.txt -Encoding ascii
+          Write-Host ($lines -join "`n")
       - uses: actions/upload-artifact@v4
+        continue-on-error: true
         with:
-          name: TaxiProFeasibility
-          path: dist/TaxiProFeasibility.zip
+          name: TaxiPro
+          path: |
+            dist/TaxiProSetup.exe
+            dist/TaxiPro-rotahub.zip
+            dist/TaxiProFeasibility.zip
+            dist/SHA256SUMS.txt
       # Artifacts need a GitHub login, so every build of main also replaces the files of the
-      # "latest-build" pre-release; this link always gives the newest one:
+      # "latest-build" pre-release; these links always give the newest ones:
+      #   https://github.com/tornqvisteliaz-cyber/taxiPro/releases/download/latest-build/TaxiProSetup.exe
       #   https://github.com/tornqvisteliaz-cyber/taxiPro/releases/download/latest-build/TaxiProFeasibility.zip
       - name: Publish the latest build
         if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
@@ -52,7 +164,7 @@ jobs:
             gh release create latest-build --title "TaxiPro latest build" --prerelease --notes "Newest build of TaxiPro, rebuilt from main automatically."
             if ($LASTEXITCODE -ne 0) { throw "Could not create the latest-build release." }
           }
-          gh release upload latest-build dist/TaxiProFeasibility.zip dist/SHA256SUMS.txt --clobber
+          gh release upload latest-build dist/TaxiProSetup.exe dist/TaxiProSetup.zip dist/TaxiPro-rotahub.zip dist/TaxiProFeasibility.zip dist/SHA256SUMS.txt --clobber
           if ($LASTEXITCODE -ne 0) { throw "Could not upload to the latest-build release." }
       - name: Publish a versioned release
         if: startsWith(github.ref, 'refs/tags/v')
@@ -63,8 +175,9 @@ jobs:
           $tag = $env:GITHUB_REF_NAME
           gh release view $tag *> $null
           if ($LASTEXITCODE -ne 0) {
-            gh release create $tag --title "TaxiPro $tag" --generate-notes --latest
+            if (Test-Path release-notes.md) { gh release create $tag --title "TaxiPro $tag" --notes-file release-notes.md --latest }
+            else { gh release create $tag --title "TaxiPro $tag" --generate-notes --latest }
             if ($LASTEXITCODE -ne 0) { throw "Could not create release $tag." }
           }
-          gh release upload $tag dist/TaxiProFeasibility.zip dist/SHA256SUMS.txt --clobber
+          gh release upload $tag dist/TaxiProSetup.exe dist/TaxiProSetup.zip dist/TaxiPro-rotahub.zip dist/rotahub.jws dist/TaxiProFeasibility.zip dist/SHA256SUMS.txt --clobber
           if ($LASTEXITCODE -ne 0) { throw "Could not upload to release $tag." }

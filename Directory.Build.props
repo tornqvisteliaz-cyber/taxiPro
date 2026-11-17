@@ -1,0 +1,19 @@
+<Project>
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Company>Rotaidem</Company>
+    <Product>TaxiPro</Product>
+    <Trademark>TaxiPro is a trademark of Rotaidem.</Trademark>
+    <!-- Keep equal to the newest "## x.y.z" in CHANGELOG.md (a test checks it). -->
+    <Version>0.2.0</Version>
+    <!-- Release builds: CI sets TP_VERSION from the tag (v0.2.0 -> 0.2.0). -->
+    <Version Condition="'$(TP_VERSION)' != ''">$(TP_VERSION)</Version>
+    <Authors>Rotaidem</Authors>
+    <Copyright>© 2026 Rotaidem. All rights reserved.</Copyright>
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
+    <DebugType>portable</DebugType>
+  </PropertyGroup>
+</Project>

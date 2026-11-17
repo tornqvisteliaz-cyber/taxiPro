@@ -3,3 +3,4 @@ obj/
 *.log
 .vs/
 dist/
+packaging/TaxiProAppPayload.zip
