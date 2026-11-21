@@ -26,7 +26,7 @@ if (-not $signtool) {
 }
 if (-not $signtool) { throw "signtool.exe not found. Install the Windows SDK, or run this on windows-latest." }
 
-$pfx = Join-Path ([System.IO.Path]::GetTempPath()) "taxipro-signing-$([Guid]::NewGuid()).pfx"
+$pfx = Join-Path ([System.IO.Path]::GetTempPath()) "groundpro-signing-$([Guid]::NewGuid()).pfx"
 [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($pfxBase64))
 try {
     & $signtool sign /f $pfx /p $pfxPassword /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 $Path

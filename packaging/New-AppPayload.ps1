@@ -1,17 +1,17 @@
 param(
     [string] $Configuration = "Release",
-    [string] $Out = (Join-Path $PSScriptRoot "TaxiProAppPayload.zip")
+    [string] $Out = (Join-Path $PSScriptRoot "GroundProAppPayload.zip")
 )
 
-# Zips the built app (src/TaxiPro.App/bin/<Configuration>/net48) into the payload TaxiProSetup.exe
+# Zips the built app (src/GroundPro.App/bin/<Configuration>/net48) into the payload GroundProSetup.exe
 # embeds and RotaHub installs: the exe, its config and every DLL next to it, plus the SimConnect
-# runtime notice. Symbols (.pdb) stay out. Build (and, in CI, sign) TaxiPro.exe before running this.
+# runtime notice. Symbols (.pdb) stay out. Build (and, in CI, sign) GroundPro.exe before running this.
 # Windows PowerShell 5.1 and pwsh 7.
 $ErrorActionPreference = "Stop"
 $repo = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
-$output = Join-Path $repo "src/TaxiPro.App/bin/$Configuration/net48"
+$output = Join-Path $repo "src/GroundPro.App/bin/$Configuration/net48"
 
-foreach ($required in "TaxiPro.exe", "TaxiPro.exe.config", "TaxiPro.Core.dll", "Rotaidem.Licensing.dll", "System.Text.Json.dll",
+foreach ($required in "GroundPro.exe", "GroundPro.exe.config", "GroundPro.Core.dll", "Rotaidem.Licensing.dll", "System.Text.Json.dll",
                       "Microsoft.FlightSimulator.SimConnect.dll", "SimConnect.dll") {
     if (-not (Test-Path (Join-Path $output $required))) { throw "The app build is missing $required ($output)." }
 }

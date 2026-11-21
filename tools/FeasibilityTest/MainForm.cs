@@ -6,9 +6,9 @@ using System.Drawing;
 using System.IO;
 using System.Windows.Forms;
 
-namespace TaxiPro.Feasibility;
+namespace GroundPro.Feasibility;
 
-/// <summary>The TaxiPro feasibility test window, in Rotaidem's colours.</summary>
+/// <summary>The GroundPro feasibility test window, in Rotaidem's colours.</summary>
 public sealed class MainForm : Form
 {
     private static readonly Color Bg = Color.FromArgb(0x11, 0x13, 0x15);
@@ -33,7 +33,7 @@ public sealed class MainForm : Form
 
     public MainForm()
     {
-        Text = "TaxiPro feasibility test";
+        Text = "GroundPro feasibility test";
         ClientSize = new Size(760, 640);
         MinimumSize = new Size(640, 520);
         StartPosition = FormStartPosition.CenterScreen;
@@ -43,7 +43,7 @@ public sealed class MainForm : Form
         try { Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath); } catch (Exception) { }
 
         var logo = new PictureBox { Left = 24, Top = 20, Width = 48, Height = 48, SizeMode = PictureBoxSizeMode.Zoom, Image = LoadLogo() };
-        var title = new Label { Text = "TaxiPro", Left = 84, Top = 18, AutoSize = true, Font = new Font("Segoe UI Semibold", 20f), ForeColor = Ink };
+        var title = new Label { Text = "GroundPro", Left = 84, Top = 18, AutoSize = true, Font = new Font("Segoe UI Semibold", 20f), ForeColor = Ink };
         var by = new Label { Text = "Feasibility test · by Rotaidem", Left = 87, Top = 54, AutoSize = true, ForeColor = Muted };
 
         _connection.SetBounds(24, 88, 712, 22);
@@ -92,7 +92,7 @@ public sealed class MainForm : Form
         ShowStatus(_status);
         FormClosing += (_, e) =>
         {
-            if (_status.Running && MessageBox.Show(this, "The test is running. Stop it and close?", "TaxiPro", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
+            if (_status.Running && MessageBox.Show(this, "The test is running. Stop it and close?", "GroundPro", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
             {
                 e.Cancel = true;
                 return;
@@ -116,7 +116,7 @@ public sealed class MainForm : Form
     {
         if (!_status.Connected)
         {
-            MessageBox.Show(this, "MSFS 2024 is not connected yet. Start the sim and load the aircraft; TaxiPro connects by itself.", "TaxiPro");
+            MessageBox.Show(this, "MSFS 2024 is not connected yet. Start the sim and load the aircraft; GroundPro connects by itself.", "GroundPro");
             return;
         }
         var problem = !_status.OnGround ? "The aircraft is not on the ground."
@@ -124,13 +124,13 @@ public sealed class MainForm : Form
             : null;
         if (problem != null)
         {
-            MessageBox.Show(this, problem, "TaxiPro");
+            MessageBox.Show(this, problem, "GroundPro");
             return;
         }
         var answer = MessageBox.Show(this,
             "Is the aircraft lined up on a RUNWAY with the engines running?\n\n"
             + "The test throttles up and taxis to about 14 kt several times. Keep your hands off the throttles; Stop brings it to a halt.",
-            "Run the TaxiPro test?", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+            "Run the GroundPro test?", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
         if (answer != DialogResult.Yes)
             return;
         _log.Clear();
@@ -141,7 +141,7 @@ public sealed class MainForm : Form
     private void ShowStatus(SimStatus s)
     {
         _status = s;
-        _connection.Text = s.Connected ? "● Connected to MSFS 2024" : "● Waiting for MSFS 2024 — start the sim; TaxiPro connects by itself";
+        _connection.Text = s.Connected ? "● Connected to MSFS 2024" : "● Waiting for MSFS 2024 — start the sim; GroundPro connects by itself";
         _connection.ForeColor = s.Connected ? Good : Muted;
         _aircraft.Text = s.Connected ? (s.Title.Length > 0 ? s.Title : "Loading aircraft…") : "";
         _details.Text = s.Connected
@@ -194,7 +194,7 @@ public sealed class MainForm : Form
 
     private static Image? LoadLogo()
     {
-        using var stream = typeof(MainForm).Assembly.GetManifestResourceStream("TaxiPro.Logo.png");
+        using var stream = typeof(MainForm).Assembly.GetManifestResourceStream("GroundPro.Logo.png");
         if (stream == null) return null;
         using var copy = new MemoryStream();
         stream.CopyTo(copy);

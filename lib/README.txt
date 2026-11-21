@@ -1,4 +1,4 @@
-SimConnect runtime files from the Microsoft Flight Simulator 2024 SDK, used to build and run TaxiPro:
+SimConnect runtime files from the Microsoft Flight Simulator 2024 SDK, used to build and run GroundPro:
 
   Microsoft.FlightSimulator.SimConnect.dll   (SDK: SimConnect SDK\lib\managed\)
   SimConnect.dll                             (SDK: SimConnect SDK\lib\)

@@ -1,7 +1,7 @@
 using System;
 using System.Windows.Forms;
 
-namespace TaxiPro.Feasibility;
+namespace GroundPro.Feasibility;
 
 static class Program
 {

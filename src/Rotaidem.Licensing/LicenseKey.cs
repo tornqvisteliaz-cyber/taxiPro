@@ -16,7 +16,7 @@ public static class LicenseKey
 {
     public const string Alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     public const string HeavyProPrefix = "HPRO";
-    public const string TaxiProPrefix = "TPRO";
+    public const string GroundProPrefix = "GPRO";
 
     private static readonly Regex KeyPattern = new("^([A-Z0-9]{2,8})-([A-Z2-9]{4})-([A-Z2-9]{4})-([A-Z2-9]{4})$", RegexOptions.CultureInvariant);
 

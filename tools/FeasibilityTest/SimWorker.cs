@@ -8,7 +8,7 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using Microsoft.FlightSimulator.SimConnect;
 
-namespace TaxiPro.Feasibility;
+namespace GroundPro.Feasibility;
 
 /// <summary>What the window shows about the sim and the aircraft.</summary>
 public sealed record SimStatus(bool Connected, string Title, double WeightLb, bool OnGround, bool ParkingBrake, double GroundSpeedKt, double N1, bool Running);
@@ -48,7 +48,7 @@ public sealed class SimWorker : IDisposable
     private StreamWriter? _log;
     private bool _running;
 
-    public string LogFolder { get; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "TaxiPro");
+    public string LogFolder { get; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "GroundPro");
 
     public SimWorker()
     {
@@ -114,7 +114,7 @@ public sealed class SimWorker : IDisposable
     {
         try
         {
-            var sim = new SimConnect("TaxiPro feasibility test", IntPtr.Zero, 0, null, 0);
+            var sim = new SimConnect("GroundPro feasibility test", IntPtr.Zero, 0, null, 0);
             sim.OnRecvException += (s, e) => { _exceptions++; Say($"# SimConnect exception {e.dwException} (send {e.dwSendID}, index {e.dwIndex})"); };
             sim.OnRecvQuit += (s, e) => Disconnect("MSFS closed.");
             sim.OnRecvSimobjectData += (s, d) =>
@@ -182,7 +182,7 @@ public sealed class SimWorker : IDisposable
         if (_r.Park > 0.5) { Say("The parking brake is set. Release it and press Run test again."); return; }
 
         Directory.CreateDirectory(LogFolder);
-        var file = Path.Combine(LogFolder, "taxipro-feasibility-" + DateTime.Now.ToString("yyyyMMdd-HHmmss") + ".log");
+        var file = Path.Combine(LogFolder, "groundpro-feasibility-" + DateTime.Now.ToString("yyyyMMdd-HHmmss") + ".log");
         _log = new StreamWriter(file) { AutoFlush = true };
         _running = true;
         _stopRequested = false;

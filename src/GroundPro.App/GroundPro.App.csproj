@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <!-- .NET Framework 4.8 ships with Windows 10 and 11: no runtime to install, like HeavyPro. -->
+    <TargetFramework>net48</TargetFramework>
+    <PlatformTarget>x64</PlatformTarget>
+    <AssemblyName>GroundPro</AssemblyName>
+    <RootNamespace>GroundPro.App</RootNamespace>
+    <ApplicationIcon>Assets\GroundPro.ico</ApplicationIcon>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\GroundPro.Core\GroundPro.Core.csproj" />
+    <ProjectReference Include="..\Rotaidem.Licensing\Rotaidem.Licensing.csproj" />
+    <Compile Include="..\Shared\GroundProLicense.cs" Link="GroundProLicense.cs" />
+    <!-- The licence server's public key (rotaidem.com/api/licenses/jwks.json, shared with HeavyPro).
+         GroundPro accepts only licence answers signed with the matching private key. -->
+    <EmbeddedResource Include="..\..\packaging\licence-public-key.json" LogicalName="GroundPro.LicensePublicKey.json" />
+    <!-- From the MSFS 2024 SDK; see lib/README.txt. -->
+    <Reference Include="Microsoft.FlightSimulator.SimConnect"><HintPath>..\..\lib\Microsoft.FlightSimulator.SimConnect.dll</HintPath></Reference>
+    <None Include="..\..\lib\SimConnect.dll" Link="SimConnect.dll"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Net.Http" />
+    <EmbeddedResource Include="Assets\Logo.png" LogicalName="GroundPro.Logo.png" />
+    <Compile Include="..\GroundPro.Core\Polyfills.cs" Link="Polyfills.cs" />
+    <!-- .NET Framework 4.8 reference assemblies, so it builds without Visual Studio (GitHub Actions, Linux). -->
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+  </ItemGroup>
+</Project>

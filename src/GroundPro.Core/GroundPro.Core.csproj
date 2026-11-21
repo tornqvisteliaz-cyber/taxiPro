@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <!-- netstandard2.0: the app runs it on .NET Framework 4.8, the tests on .NET 8, and it builds anywhere. -->
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <RootNamespace>GroundPro.Core</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="System.Text.Json" Version="8.0.5" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="GroundPro.Core.Tests" />
+  </ItemGroup>
+</Project>

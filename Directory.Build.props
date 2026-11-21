@@ -4,12 +4,12 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <Company>Rotaidem</Company>
-    <Product>TaxiPro</Product>
-    <Trademark>TaxiPro is a trademark of Rotaidem.</Trademark>
+    <Product>GroundPro</Product>
+    <Trademark>GroundPro is a trademark of Rotaidem.</Trademark>
     <!-- Keep equal to the newest "## x.y.z" in CHANGELOG.md (a test checks it). -->
     <Version>0.2.0</Version>
-    <!-- Release builds: CI sets TP_VERSION from the tag (v0.2.0 -> 0.2.0). -->
-    <Version Condition="'$(TP_VERSION)' != ''">$(TP_VERSION)</Version>
+    <!-- Release builds: CI sets GP_VERSION from the tag (v0.2.0 -> 0.2.0). -->
+    <Version Condition="'$(GP_VERSION)' != ''">$(GP_VERSION)</Version>
     <Authors>Rotaidem</Authors>
     <Copyright>© 2026 Rotaidem. All rights reserved.</Copyright>
     <Deterministic>true</Deterministic>
